@@ -139,6 +139,21 @@ export default async function BackupSettingsPage() {
           Spustit zálohu nyní
         </button>
       </form>
+
+      <div className="rounded-xl border border-rose-200 bg-rose-50 p-5">
+        <h2 className="mb-2 text-lg font-medium text-rose-900">Obnovení ze zálohy</h2>
+        <p className="mb-3 text-sm text-rose-800">
+          Destruktivní akce — přepíše aktuální databázi obsahem zvolené zálohy z Google Drive
+          a restartuje kontejner. Aplikace si automaticky uloží snapshot současné DB jako
+          safety před přepsáním.
+        </p>
+        <a
+          href="/settings/backup/restore"
+          className="inline-block rounded-lg border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-800 hover:bg-rose-100"
+        >
+          Otevřít obnovu →
+        </a>
+      </div>
     </div>
   );
 }
