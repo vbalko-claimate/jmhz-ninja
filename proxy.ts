@@ -4,6 +4,10 @@ import { NextResponse } from 'next/server';
 
 const { auth } = NextAuth(authConfig);
 
+// Statické soubory v /public/, které musí být přístupné bez přihlášení
+// (jinak je Next.js Image optimizér nemůže interně fetchnout a vrátí 400).
+const PUBLIC_FILE = /\.(?:jpg|jpeg|png|gif|svg|webp|ico|woff2?|ttf|otf|css|js|map|txt|xml)$/i;
+
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isPublic =
@@ -11,7 +15,8 @@ export default auth((req) => {
     pathname.startsWith('/api/auth') ||
     pathname === '/api/health' ||
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon');
+    pathname.startsWith('/favicon') ||
+    PUBLIC_FILE.test(pathname);
 
   if (isPublic) return;
 
