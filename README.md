@@ -56,12 +56,36 @@ Zdrojové dokumenty od ČSSZ/MPSV jsou stahovány skriptem `scripts/fetch-jmhz.s
 
 - [x] Scaffold + dependencies
 - [x] Drizzle schema + migrace (7 tabulek)
-- [x] Core payroll calc + Vitest (10 testů, threshold + ceil rounding + signed declaration)
-- [x] Auth.js + Google OAuth + RBAC middleware + login page + dashboard
-- [ ] Settings UI (AppConfig, LegalParameters, Employees, Users)
-- [ ] Monthly Payroll UI
-- [ ] Exports (CSV, TXT, PDF, XML JMHZ)
-- [ ] Lock workflow + Drive archive
-- [ ] Noční backup do Google Drive (+ volitelné šifrování)
-- [ ] GDPR JSON export
-- [ ] Dockerfile + Coolify config
+- [x] Core payroll calc + Vitest (10 testů)
+- [x] Auth.js + Google OAuth + RBAC + JIT provisioning + role-aware UI
+- [x] Settings UI (AppConfig, LegalParameters s verzováním, Employees CRUD, Users)
+- [x] Monthly Payroll UI s threshold blocking warning a snapshot pravidel
+- [x] Exports CSV / TXT / PDF (react-pdf) / XLSX / XML JMHZ
+- [x] Lock workflow (XML generation → admin potvrdí odeslání s referencí → archivace bundlu do Drive)
+- [x] Noční backup SQLite do Google Drive (cron 02:00 Europe/Prague), volitelné AES-256-GCM šifrování (scrypt + passphrase), restore CLI
+- [x] GDPR JSON export per employee + soft delete + /legal stránka s retenční politikou
+- [x] Dockerfile (standalone Next.js) + entrypoint s migracemi + .dockerignore
+
+## Deployment (Coolify)
+
+1. V Coolify vytvoř nový resource z GitHub repa (Dockerfile build pack).
+2. Persistent volume: `/app/data` (SQLite + tmp soubory).
+3. ENV proměnné (viz `.env.example`):
+   - `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_URL=https://<vase-domena>`
+   - `ADMIN_EMAILS`
+   - `GDRIVE_SA_KEY_JSON` (inline service account JSON, escapovaný)
+   - `GDRIVE_FOLDER_ID`
+   - `BACKUP_PASSPHRASE` (volitelně, pro šifrované zálohy)
+4. Healthcheck endpoint: `GET /api/health`.
+5. Při startu kontejneru se automaticky aplikují migrace a seedne se singleton config.
+6. Backup scheduler je armovaný pouze v `NODE_ENV=production` (instrumentation.ts).
+
+## Restore zálohy
+
+```bash
+# Plaintext záloha
+pnpm restore-backup svj-2026-05-20.db data/svj.db
+
+# Šifrovaná záloha (zeptá se na passphrase)
+pnpm restore-backup svj-2026-05-20.db.enc data/svj.db
+```
