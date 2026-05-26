@@ -65,6 +65,9 @@ export const payrollPeriods = sqliteTable(
     submissionReference: text('submission_reference'),
     archiveFolderId: text('archive_folder_id'),
     notes: text('notes'),
+    lastValidatedAt: integer('last_validated_at', { mode: 'timestamp' }),
+    lastValidationOk: integer('last_validation_ok', { mode: 'boolean' }),
+    lastValidationErrors: text('last_validation_errors', { mode: 'json' }),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),

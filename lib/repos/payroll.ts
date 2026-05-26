@@ -61,6 +61,22 @@ export async function upsertRecord(
   }
 }
 
+export async function recordValidation(
+  periodId: number,
+  ok: boolean,
+  errors: unknown,
+): Promise<void> {
+  await db
+    .update(payrollPeriods)
+    .set({
+      lastValidatedAt: new Date(),
+      lastValidationOk: ok,
+      lastValidationErrors: errors as never,
+      updatedAt: new Date(),
+    })
+    .where(eq(payrollPeriods.id, periodId));
+}
+
 export async function markGenerated(periodId: number): Promise<void> {
   await db
     .update(payrollPeriods)

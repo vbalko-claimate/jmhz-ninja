@@ -56,6 +56,15 @@ export default async function SubmitPage({
       </div>
 
       {!isSubmitted && (
+        <ValidationCheck
+          ok={period.lastValidationOk}
+          at={period.lastValidatedAt}
+          errorsCount={Array.isArray(period.lastValidationErrors) ? period.lastValidationErrors.length : 0}
+          backHref={`/exports?year=${year}&month=${month}`}
+        />
+      )}
+
+      {!isSubmitted && (
         <form action={confirmSubmit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs font-medium text-slate-600">
@@ -121,6 +130,57 @@ export default async function SubmitPage({
           </details>
         </div>
       )}
+    </div>
+  );
+}
+
+import Link from 'next/link';
+
+function ValidationCheck({
+  ok,
+  at,
+  errorsCount,
+  backHref,
+}: {
+  ok: boolean | null | undefined;
+  at: Date | null | undefined;
+  errorsCount: number;
+  backHref: string;
+}) {
+  if (at == null || ok == null) {
+    return (
+      <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <strong>⚠ XML JMHZ ještě nebylo validováno proti ČSSZ.</strong>
+        <p className="mt-1 text-xs">
+          Doporučujeme spustit validaci v{' '}
+          <Link href={backHref} className="underline">
+            Exporty
+          </Link>
+          {' '}před tím, než označíte měsíc jako odeslaný. Validátor odhalí chyby, které by jinak
+          vedly k zamítnutí podání ze strany ČSSZ.
+        </p>
+      </div>
+    );
+  }
+  if (!ok) {
+    return (
+      <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-900">
+        <strong>✗ Poslední validace selhala</strong> ({errorsCount} chyb,{' '}
+        {new Date(at).toLocaleString('cs-CZ')}).
+        <p className="mt-1 text-xs">
+          Označovat měsíc jako odeslaný má smysl jen poté, co validátor vrátí OK. Vraťte se do{' '}
+          <Link href={backHref} className="underline">
+            Exporty
+          </Link>
+          , klikněte „Validovat ČSSZ" a opravte chyby.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">
+      <strong>✓ Validace OK</strong> · ČSSZ test endpoint přijal XML{' '}
+      {new Date(at).toLocaleString('cs-CZ')}. Můžete pokračovat v podání.
     </div>
   );
 }

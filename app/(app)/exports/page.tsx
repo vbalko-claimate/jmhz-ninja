@@ -47,8 +47,13 @@ export default async function ExportsPage({
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <div className="font-medium">
+                  <div className="flex items-center gap-2 font-medium">
                     {monthLabel(p.month)} {p.year}
+                    <ValidationBadge
+                      ok={p.lastValidationOk}
+                      at={p.lastValidatedAt}
+                      errorsCount={Array.isArray(p.lastValidationErrors) ? p.lastValidationErrors.length : 0}
+                    />
                   </div>
                   <div className="text-xs text-slate-500">
                     Stav: <strong>{p.status}</strong>
@@ -91,6 +96,43 @@ export default async function ExportsPage({
         })}
       </div>
     </div>
+  );
+}
+
+function ValidationBadge({
+  ok,
+  at,
+  errorsCount,
+}: {
+  ok: boolean | null | undefined;
+  at: Date | null | undefined;
+  errorsCount: number;
+}) {
+  if (at == null || ok == null) {
+    return (
+      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+        nevalidováno
+      </span>
+    );
+  }
+  const time = new Date(at).toLocaleString('cs-CZ');
+  if (ok) {
+    return (
+      <span
+        title={`Validace OK · ${time}`}
+        className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700"
+      >
+        ✓ validní
+      </span>
+    );
+  }
+  return (
+    <span
+      title={`Validace selhala · ${time}`}
+      className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-700"
+    >
+      ✗ {errorsCount} chyb
+    </span>
   );
 }
 

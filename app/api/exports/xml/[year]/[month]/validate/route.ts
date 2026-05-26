@@ -3,6 +3,8 @@ import { loadPayrollForExport } from '@/lib/exports/data';
 import { buildJmhzXml, validateEmployeeForJmhz } from '@/lib/exports/xml-jmhz';
 import { validateJmhzXml } from '@/lib/exports/jmhz-validator';
 import { handleApiError, notFound } from '@/lib/api-errors';
+import { recordValidation } from '@/lib/repos/payroll';
+import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -34,11 +36,21 @@ export async function POST(
       if (errs.length) missing.push({ name: `${r.lastName} ${r.firstName}`, errors: errs });
     }
     if (missing.length > 0) {
+      await recordValidation(data.period.id, false, { missing });
+      revalidatePath('/exports');
       return NextResponse.json({ ok: false, missing }, { status: 422 });
     }
 
     const xml = buildJmhzXml(data);
     const validation = await validateJmhzXml(xml, { env: 'test' });
+
+    await recordValidation(
+      data.period.id,
+      validation.ok,
+      validation.ok ? [] : validation.errors,
+    );
+    revalidatePath('/exports');
+    revalidatePath(`/payroll/${year}/${String(month).padStart(2, '0')}/submit`);
 
     return NextResponse.json({
       ok: validation.ok,

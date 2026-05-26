@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Spinner } from '@/components/Spinner';
 
@@ -13,6 +14,7 @@ type Result =
 export default function ValidateXmlButton({ year, month }: { year: number; month: number }) {
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<Result>(null);
+  const router = useRouter();
 
   async function run() {
     setPending(true);
@@ -42,6 +44,7 @@ export default function ValidateXmlButton({ year, month }: { year: number; month
       });
     } finally {
       setPending(false);
+      router.refresh(); // pull the freshly-saved validation status into the badge
     }
   }
 
