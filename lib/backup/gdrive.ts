@@ -13,14 +13,17 @@ function ensureTmp() {
 }
 
 function getDriveClient() {
-  const raw = process.env.GDRIVE_SA_KEY_JSON;
-  if (!raw) throw new Error('GDRIVE_SA_KEY_JSON not set');
-  const credentials = JSON.parse(raw);
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/drive.file'],
-  });
-  return google.drive({ version: 'v3', auth });
+  const clientId = process.env.GDRIVE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GDRIVE_OAUTH_CLIENT_SECRET;
+  const refreshToken = process.env.GDRIVE_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error(
+      'OAuth credentials missing — set GDRIVE_OAUTH_CLIENT_ID, GDRIVE_OAUTH_CLIENT_SECRET and GDRIVE_REFRESH_TOKEN.',
+    );
+  }
+  const oauth2 = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2.setCredentials({ refresh_token: refreshToken });
+  return google.drive({ version: 'v3', auth: oauth2 });
 }
 
 async function getFolderId(): Promise<string> {

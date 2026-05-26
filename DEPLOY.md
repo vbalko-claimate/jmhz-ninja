@@ -67,65 +67,68 @@ Aplikace přihlašuje přes Google. Potřebujete OAuth 2.0 Client ID.
 
 ---
 
-## 3) Google Drive service account pro zálohy
+## 3) Google Drive backup přes OAuth (osobní účet)
 
-Aplikace zálohuje SQLite DB a archivuje reporty do dedikované Drive složky pomocí service account (nezávisle na vašem osobním účtu).
+Pro osobní Gmail (My Drive) nelze použít service account — nemá vlastní storage quota
+a upload do sdílené složky selže s 403 Forbidden. Místo toho použijeme **OAuth refresh token**:
+autorizujete app jednorázově v prohlížeči, dostanete trvalý refresh_token, a app pak
+nahrává soubory **vaším jménem** (jdou proti vašich 15 GB Drive quota).
 
 ### 3.1 Zapněte Google Drive API
 
 1. https://console.cloud.google.com/apis/library/drive.googleapis.com
 2. **Enable**.
 
-### 3.2 Vytvořte service account
+### 3.2 Vytvořte OAuth client typu Desktop app
 
-1. https://console.cloud.google.com/iam-admin/serviceaccounts
-2. **+ Create service account**
-3. **Name:** `jmhz-ninja-backup`
-4. **Service account ID:** vyplní se automaticky (např. `jmhz-ninja-backup@jmhz-ninja.iam.gserviceaccount.com`) — **zkopírujte si tento email**.
-5. **Grant access** kroky přeskočte (žádné role nepotřebujeme — service account potřebuje jen práva, která dostane sdílením Drive složky).
-6. Done.
+1. https://console.cloud.google.com/apis/credentials
+2. **+ Create credentials → OAuth client ID**.
+3. **Application type:** Desktop app.
+4. **Name:** `JMHZ Ninja — Drive backup` (libovolné).
+5. **Authorized redirect URIs:** `http://localhost:8765/callback`.
+6. Create → uložte si **Client ID** a **Client secret**.
 
-### 3.3 Vygenerujte JSON klíč
+> Pokud máte OAuth consent screen ve stavu *Testing*, přidejte do **Test users**
+> stejné e-maily jako pro web login.
 
-1. V seznamu service accountů klikněte na `jmhz-ninja-backup@...`.
-2. Záložka **Keys → Add Key → Create new key → JSON → Create**.
-3. Stáhne se soubor `jmhz-ninja-xxxxxxxx.json`. **Tento soubor je tajný — necommitujte ho.**
+### 3.3 Vytvořte Drive složku
 
-### 3.4 Vytvořte Drive složku a sdílejte se SA
+1. https://drive.google.com → vytvořte složku, např. `JMHZ Ninja — Backup`.
+2. Otevřete ji, ID složky je v URL:
+   `https://drive.google.com/drive/folders/<TOHLE>` → uložte jako `GDRIVE_FOLDER_ID`.
 
-1. Otevřete https://drive.google.com.
-2. Vytvořte složku, např. `JMHZ Ninja — Backup`.
-3. **Pravý klik → Share**.
-4. Vložte email service accountu (`jmhz-ninja-backup@jmhz-ninja.iam.gserviceaccount.com`).
-5. Role: **Editor** (Content manager).
-6. **Send / Share**. (Google upozorní, že to není Google účet — to je v pořádku, je to service account.)
+Žádné sdílení s SA emailem už **není potřeba** — soubory se vytváří pod vaším účtem.
 
-### 3.5 Zjistěte Folder ID
+### 3.4 Jednorázová autorizace (refresh token)
 
-Otevřete vytvořenou složku v prohlížeči. URL vypadá takto:
-```
-https://drive.google.com/drive/folders/1AbCdEf...XYZ
-                                       ^^^^^^^^^^^^^^^^
-                                       toto je folder ID
-```
-
-Uložte si ho jako `GDRIVE_FOLDER_ID`.
-
-### 3.6 Připravte JSON klíč pro ENV proměnnou
-
-Coolify ENV nepodporuje multi-line hodnoty čistě. Stáhnutý JSON je multi-line — buď ho minifikujte:
+Lokálně na vašem Macu:
 
 ```bash
-jq -c . < jmhz-ninja-xxxxxxxx.json
+# Doplňte hodnoty do .env.local nebo přes export
+export GDRIVE_OAUTH_CLIENT_ID="...apps.googleusercontent.com"
+export GDRIVE_OAUTH_CLIENT_SECRET="GOCSPX-..."
+
+pnpm auth-gdrive
 ```
 
-…nebo jednoduše:
+Co se stane:
+1. Spustí se lokální server na portu 8765.
+2. Otevře se prohlížeč s Google consent screen.
+3. Přihlásíte se účtem **vbalko@gmail.com** (ten co vlastní backup složku).
+4. Kliknete **Allow**.
+5. Skript v terminálu vypíše `GDRIVE_REFRESH_TOKEN`.
 
-```bash
-cat jmhz-ninja-xxxxxxxx.json | tr -d '\n' | tr -s ' '
-```
+Vložte ho do Coolify ENV. **Refresh token je trvalý** — funguje dokud ho nezneplatníte
+v https://myaccount.google.com/permissions.
 
-Výsledek (jeden dlouhý řádek začínající `{"type":"service_account",...`) uložte jako `GDRIVE_SA_KEY_JSON`.
+### 3.5 ENV summary
+
+| Klíč | Hodnota |
+|---|---|
+| `GDRIVE_OAUTH_CLIENT_ID` | Z kroku 3.2 |
+| `GDRIVE_OAUTH_CLIENT_SECRET` | Z kroku 3.2 |
+| `GDRIVE_REFRESH_TOKEN` | Z kroku 3.4 |
+| `GDRIVE_FOLDER_ID` | ID složky z 3.3 |
 
 ---
 
@@ -185,8 +188,10 @@ V resource → **Environment Variables**:
 | `AUTH_GOOGLE_SECRET` | Z kroku 2.3 |
 | `ADMIN_EMAILS` | `vase-adresa@gmail.com` (čárkou oddělené) |
 | `DB_PATH` | `/app/data/svj.db` |
-| `GDRIVE_SA_KEY_JSON` | Minifikovaný JSON z kroku 3.6 |
-| `GDRIVE_FOLDER_ID` | ID složky z kroku 3.5 |
+| `GDRIVE_OAUTH_CLIENT_ID` | Z kroku 3.2 |
+| `GDRIVE_OAUTH_CLIENT_SECRET` | Z kroku 3.2 |
+| `GDRIVE_REFRESH_TOKEN` | Z kroku 3.4 (`pnpm auth-gdrive`) |
+| `GDRIVE_FOLDER_ID` | ID složky z kroku 3.3 |
 | `BACKUP_PASSPHRASE` | Z kroku 4 — **nebo nechte prázdné** |
 
 Všechny secrety v Coolify označte jako **Secret** (skrytí v UI).

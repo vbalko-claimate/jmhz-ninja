@@ -15,7 +15,12 @@ export default async function BackupSettingsPage() {
   await requireRole(['admin']);
   const s = await getBackupSettings();
   const passphraseConfigured = Boolean(process.env.BACKUP_PASSPHRASE);
-  const gdriveConfigured = Boolean(process.env.GDRIVE_SA_KEY_JSON && process.env.GDRIVE_FOLDER_ID);
+  const gdriveConfigured = Boolean(
+    process.env.GDRIVE_OAUTH_CLIENT_ID &&
+      process.env.GDRIVE_OAUTH_CLIENT_SECRET &&
+      process.env.GDRIVE_REFRESH_TOKEN &&
+      process.env.GDRIVE_FOLDER_ID,
+  );
 
   async function save(formData: FormData) {
     'use server';
@@ -52,8 +57,15 @@ export default async function BackupSettingsPage() {
         <h2 className="mb-3 text-lg font-medium">Stav</h2>
         <ul className="space-y-1 text-sm">
           <li>
-            Google Drive service account:{' '}
-            <Badge ok={gdriveConfigured}>{gdriveConfigured ? 'nastaveno' : 'nenastaveno (ENV)'}</Badge>
+            Google Drive OAuth (uživatel):{' '}
+            <Badge ok={gdriveConfigured}>
+              {gdriveConfigured ? 'nastaveno' : 'nenastaveno (ENV)'}
+            </Badge>
+            {!gdriveConfigured && (
+              <span className="ml-2 text-xs text-slate-500">
+                vyžaduje GDRIVE_OAUTH_CLIENT_ID, _SECRET, _REFRESH_TOKEN, FOLDER_ID
+              </span>
+            )}
           </li>
           <li>
             Šifrovací heslo:{' '}
