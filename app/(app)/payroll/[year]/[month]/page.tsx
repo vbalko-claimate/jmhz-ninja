@@ -6,6 +6,7 @@ import { monthLabel } from '@/lib/utils';
 import { formatCZK } from '@/lib/money';
 import PayrollEditor from './PayrollEditor';
 import Link from 'next/link';
+import { PeriodNav } from '@/components/PeriodPicker';
 
 export default async function PayrollPage({
   params,
@@ -57,7 +58,8 @@ export default async function PayrollPage({
             )}
           </p>
         </div>
-        <div className="flex gap-2 text-sm">
+        <div className="flex flex-wrap gap-2 text-sm">
+          <PeriodNav year={year} month={month} />
           <Link
             href={`/exports?year=${year}&month=${month}`}
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-700 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 hover:shadow-sm"

@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth';
 import Link from 'next/link';
 import Image from 'next/image';
+import PeriodPicker from '@/components/PeriodPicker';
 
 type Card = {
   href: string;
@@ -124,6 +125,11 @@ export default async function DashboardPage() {
               </span>
             </div>
           </div>
+        </div>
+
+        <div className="relative mt-6 flex flex-wrap items-center gap-3">
+          <span className="text-xs font-medium text-slate-600">Vybrat období:</span>
+          <PeriodPicker defaultYear={year} defaultMonth={month} label="Otevřít payroll →" />
         </div>
       </header>
 
