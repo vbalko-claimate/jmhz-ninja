@@ -39,8 +39,10 @@ export default async function ExportsPage({
           return (
             <div
               key={p.id}
-              className={`rounded-xl border bg-white p-5 ${
-                highlight ? 'border-slate-900 ring-2 ring-slate-200' : 'border-slate-200'
+              className={`group rounded-xl border bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+                highlight
+                  ? 'border-indigo-300 ring-2 ring-indigo-200 shadow-md shadow-indigo-100'
+                  : 'border-slate-200 hover:border-indigo-200'
               }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -104,10 +106,10 @@ function DownloadBtn({
   return (
     <a
       href={href}
-      className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150 ease-out active:scale-[0.97] ${
         primary
-          ? 'bg-slate-900 text-white hover:bg-slate-800'
-          : 'border border-slate-300 hover:bg-slate-100'
+          ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-sm shadow-indigo-600/20 hover:from-indigo-500 hover:to-indigo-600 hover:shadow-md hover:shadow-indigo-500/30'
+          : 'border border-slate-300 bg-white hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700'
       }`}
     >
       {label}

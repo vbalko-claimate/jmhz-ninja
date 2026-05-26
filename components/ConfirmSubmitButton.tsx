@@ -8,10 +8,14 @@ import { Spinner } from './Spinner';
 type Variant = 'primary' | 'secondary' | 'danger' | 'success';
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-slate-900 text-white hover:bg-slate-800 disabled:bg-slate-400',
-  secondary: 'border border-slate-300 hover:bg-slate-100 disabled:opacity-50',
-  danger: 'border border-rose-300 text-rose-700 hover:bg-rose-50 disabled:opacity-50',
-  success: 'bg-emerald-700 text-white hover:bg-emerald-800 disabled:bg-slate-300',
+  primary:
+    'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-sm shadow-indigo-600/20 hover:from-indigo-500 hover:to-indigo-600 hover:shadow-md hover:shadow-indigo-500/30 active:scale-[0.98] disabled:from-slate-400 disabled:to-slate-400',
+  secondary:
+    'border border-slate-300 bg-white/80 backdrop-blur hover:bg-slate-50 hover:border-slate-400 active:scale-[0.98] disabled:opacity-50',
+  danger:
+    'border border-rose-300 bg-white/80 backdrop-blur text-rose-700 hover:bg-rose-50 hover:border-rose-400 hover:shadow-sm hover:shadow-rose-200 active:scale-[0.98] disabled:opacity-50',
+  success:
+    'bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-sm shadow-emerald-600/20 hover:from-emerald-500 hover:to-teal-500 hover:shadow-md hover:shadow-emerald-500/30 active:scale-[0.98] disabled:from-slate-400 disabled:to-slate-400',
 };
 
 /**
@@ -54,7 +58,7 @@ export default function ConfirmSubmitButton({
         armed.current = true;
       }}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg transition disabled:cursor-not-allowed',
+        'inline-flex items-center justify-center gap-2 rounded-lg transition-all duration-150 ease-out disabled:cursor-not-allowed',
         sizeCls,
         VARIANTS[variant],
         className,

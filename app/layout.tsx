@@ -30,7 +30,19 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
         {children}
-        <Toaster position="bottom-right" richColors closeButton />
+        <Toaster
+          position="bottom-right"
+          richColors
+          closeButton
+          toastOptions={{
+            classNames: {
+              toast:
+                'group bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl shadow-slate-900/5',
+              title: 'font-medium',
+              description: 'text-slate-600',
+            },
+          }}
+        />
       </body>
     </html>
   );

@@ -45,10 +45,10 @@ export default async function PayrollPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">
+          <h1 className="bg-gradient-to-r from-slate-900 to-indigo-700 bg-clip-text text-2xl font-bold tracking-tight text-transparent">
             Payroll {monthLabel(month)} {year}
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-500">
             Stav: <StatusBadge status={period.status} />
             {period.submissionReference && (
               <span className="ml-2 text-xs">
@@ -60,9 +60,9 @@ export default async function PayrollPage({
         <div className="flex gap-2 text-sm">
           <Link
             href={`/exports?year=${year}&month=${month}`}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-100"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-700 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 hover:shadow-sm"
           >
-            Exporty / XML JMHZ
+            Exporty / XML JMHZ →
           </Link>
         </div>
       </div>
@@ -109,16 +109,18 @@ export default async function PayrollPage({
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    draft: 'bg-slate-200 text-slate-700',
-    generated: 'bg-amber-200 text-amber-900',
-    submitted: 'bg-emerald-200 text-emerald-900',
+    draft: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200',
+    generated: 'bg-amber-100 text-amber-800 ring-1 ring-amber-200',
+    submitted:
+      'bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 ring-1 ring-emerald-200',
   };
   return (
     <span
-      className={`inline-block rounded px-2 py-0.5 text-xs font-medium uppercase ${
-        map[status] ?? 'bg-slate-200 text-slate-700'
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+        map[status] ?? 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'
       }`}
     >
+      {status === 'submitted' && <span>✓</span>}
       {status}
     </span>
   );
