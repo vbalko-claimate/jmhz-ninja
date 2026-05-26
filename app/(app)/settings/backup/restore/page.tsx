@@ -2,6 +2,7 @@ import { requireRole } from '@/lib/auth';
 import { listDriveBackups, type DriveBackup } from '@/lib/backup/restore';
 import Link from 'next/link';
 import { restoreAction } from './actions';
+import ConfirmSubmitButton from '@/components/ConfirmSubmitButton';
 
 function fmtSize(bytes: number | null): string {
   if (bytes == null) return '?';
@@ -150,12 +151,15 @@ export default async function RestorePage({
                       </span>
                     </label>
 
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-rose-700 px-4 py-2 text-sm font-medium text-white hover:bg-rose-800"
+                    <ConfirmSubmitButton
+                      confirm={`Obnovit DB ze zálohy ${b.name}? Kontejner se restartuje. Tato akce je nevratná.`}
+                      variant="danger"
+                      size="md"
+                      pendingLabel="Obnovuji DB… (cca 10 s)"
+                      className="bg-rose-700 text-white hover:bg-rose-800"
                     >
                       Obnovit z této zálohy
-                    </button>
+                    </ConfirmSubmitButton>
                   </form>
                 </details>
               </li>

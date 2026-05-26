@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { savePayroll, type SaveResult } from './actions';
 import type { Employee } from '@/lib/db/schema';
+import { Spinner } from '@/components/Spinner';
 
 type Row = {
   employeeId: number;
@@ -52,7 +54,14 @@ export default function PayrollEditor({
       };
       const res = await savePayroll(payload);
       setResult(res);
-      if (res.ok) router.refresh();
+      if (res.ok) {
+        toast.success(`Payroll ${month}/${year} uložen.`);
+        router.refresh();
+      } else if (res.reason === 'THRESHOLD_EXCEEDED') {
+        toast.error('Limit pojistného překročen — viz detail níže.');
+      } else {
+        toast.error(res.detail ?? res.reason);
+      }
     });
   }
 
@@ -150,8 +159,9 @@ export default function PayrollEditor({
         <button
           onClick={onSave}
           disabled={pending || locked}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-400"
+          className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-400"
         >
+          {pending && <Spinner className="h-3 w-3" />}
           {pending ? 'Ukládám…' : 'Uložit payroll'}
         </button>
       </div>

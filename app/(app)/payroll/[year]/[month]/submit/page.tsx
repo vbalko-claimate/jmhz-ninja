@@ -4,6 +4,8 @@ import { archivePeriodToDrive } from '@/lib/exports/archive';
 import { monthLabel } from '@/lib/utils';
 import { notFound, redirect } from 'next/navigation';
 import { reopenPeriodAction } from '../actions';
+import SubmitButton from '@/components/SubmitButton';
+import ConfirmSubmitButton from '@/components/ConfirmSubmitButton';
 
 export default async function SubmitPage({
   params,
@@ -66,12 +68,12 @@ export default async function SubmitPage({
               className="rounded-md border border-slate-300 px-3 py-1.5 font-mono text-sm focus:border-slate-500 focus:outline-none"
             />
           </label>
-          <button
-            type="submit"
-            className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800"
+          <SubmitButton
+            variant="success"
+            pendingLabel="Archivuji do Drive a zamykám…"
           >
             Potvrdit odeslání a zamknout
-          </button>
+          </SubmitButton>
         </form>
       )}
 
@@ -109,9 +111,12 @@ export default async function SubmitPage({
                 placeholder="Důvod (audit log)"
                 className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
               />
-              <button className="rounded-lg border border-rose-300 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50">
+              <ConfirmSubmitButton
+                confirm="Skutečně odemknout zamčený měsíc? Bude vyžadováno nové generování XML a opětovné odeslání."
+                pendingLabel="Odemykám…"
+              >
                 Odemknout
-              </button>
+              </ConfirmSubmitButton>
             </form>
           </details>
         </div>

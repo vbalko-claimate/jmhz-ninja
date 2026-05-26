@@ -1,5 +1,6 @@
 import { signIn, auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
+import SubmitButton from '@/components/SubmitButton';
 
 export default async function LoginPage({
   searchParams,
@@ -29,12 +30,12 @@ export default async function LoginPage({
           }}
           className="mt-6"
         >
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+          <SubmitButton
+            className="w-full"
+            pendingLabel="Přesměrovávám na Google…"
           >
             Přihlásit se přes Google
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </main>

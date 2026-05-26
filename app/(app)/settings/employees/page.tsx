@@ -7,6 +7,8 @@ import {
   reactivateEmployeeAction,
 } from './actions';
 import { formatCZK } from '@/lib/money';
+import SubmitButton from '@/components/SubmitButton';
+import ConfirmSubmitButton from '@/components/ConfirmSubmitButton';
 
 export default async function EmployeesPage() {
   await requireRole(['admin']);
@@ -83,12 +85,12 @@ export default async function EmployeesPage() {
                           await deleteEmployeeAction(e.id);
                         }}
                       >
-                        <button
-                          type="submit"
-                          className="rounded border border-rose-300 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
+                        <ConfirmSubmitButton
+                          confirm={`Deaktivovat ${e.lastName} ${e.firstName}? Historický payroll zůstane zachován.`}
+                          pendingLabel="…"
                         >
                           Deaktivovat
-                        </button>
+                        </ConfirmSubmitButton>
                       </form>
                     ) : (
                       <form
@@ -97,12 +99,14 @@ export default async function EmployeesPage() {
                           await reactivateEmployeeAction(e.id);
                         }}
                       >
-                        <button
-                          type="submit"
-                          className="rounded border border-emerald-300 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-50"
+                        <SubmitButton
+                          variant="secondary"
+                          size="sm"
+                          pendingLabel="…"
+                          className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                         >
                           Obnovit
-                        </button>
+                        </SubmitButton>
                       </form>
                     )}
                     <form
@@ -209,12 +213,7 @@ export default async function EmployeesPage() {
 
           <Field name="notes" label="Poznámky" colSpan placeholder="vnitřní poznámka, např. změna od kdy, role apod." />
 
-          <button
-            type="submit"
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-          >
-            Uložit
-          </button>
+          <SubmitButton pendingLabel="Ukládám…">Uložit</SubmitButton>
         </form>
       </section>
     </div>

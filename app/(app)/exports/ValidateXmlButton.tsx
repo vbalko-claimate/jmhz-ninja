@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
+import { Spinner } from '@/components/Spinner';
 
 type Result =
   | null
@@ -22,10 +24,21 @@ export default function ValidateXmlButton({ year, month }: { year: number; month
       );
       const data = await res.json();
       setResult(data);
+      if (data.ok === true) {
+        toast.success(`XML JMHZ pro ${month}/${year} prošlo validací (${data.durationMs} ms).`);
+      } else if (data?.missing) {
+        toast.warning(
+          `Některým zaměstnancům chybí povinná pole pro JMHZ (${data.missing.length}).`,
+        );
+      } else if (Array.isArray(data?.errors)) {
+        toast.error(`Validátor vrátil ${data.errors.length} chyb.`);
+      }
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Validace selhala: ${msg}`);
       setResult({
         ok: false,
-        errors: [{ kategorie: 'Network', kod: 'FETCH', popis: String(e) }],
+        errors: [{ kategorie: 'Network', kod: 'FETCH', popis: msg }],
       });
     } finally {
       setPending(false);
@@ -37,8 +50,9 @@ export default function ValidateXmlButton({ year, month }: { year: number; month
       <button
         onClick={run}
         disabled={pending}
-        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100 disabled:bg-slate-50 disabled:text-slate-400"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100 disabled:bg-slate-50 disabled:text-slate-400"
       >
+        {pending && <Spinner className="h-3 w-3" />}
         {pending ? 'Validuji…' : 'Validovat ČSSZ'}
       </button>
       {result && 'ok' in result && result.ok && (

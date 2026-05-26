@@ -2,6 +2,7 @@ import { auth, signOut } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import SubmitButton from '@/components/SubmitButton';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await auth();
@@ -46,9 +47,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                 await signOut({ redirectTo: '/login' });
               }}
             >
-              <button className="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-100">
+              <SubmitButton variant="secondary" size="sm" pendingLabel="…">
                 Odhlásit
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </div>

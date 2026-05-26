@@ -7,6 +7,8 @@ import {
   updateUserRole,
 } from '@/lib/repos/users';
 import { revalidatePath } from 'next/cache';
+import SubmitButton from '@/components/SubmitButton';
+import ConfirmSubmitButton from '@/components/ConfirmSubmitButton';
 
 export default async function UsersPage() {
   const me = await requireRole(['admin']);
@@ -90,9 +92,9 @@ export default async function UsersPage() {
                         <option value="viewer">viewer</option>
                       </select>
                       {!isMe && (
-                        <button className="ml-1 rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">
+                        <SubmitButton variant="secondary" size="sm" className="ml-1" pendingLabel="…">
                           Uložit
-                        </button>
+                        </SubmitButton>
                       )}
                     </form>
                   </td>
@@ -119,9 +121,9 @@ export default async function UsersPage() {
                             await toggleActiveAction(u.id, !u.isActive);
                           }}
                         >
-                          <button className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">
+                          <SubmitButton variant="secondary" size="sm" pendingLabel="…">
                             {u.isActive ? 'Deaktivovat' : 'Aktivovat'}
-                          </button>
+                          </SubmitButton>
                         </form>
                         <form
                           action={async () => {
@@ -129,9 +131,11 @@ export default async function UsersPage() {
                             await deleteAction(u.id);
                           }}
                         >
-                          <button className="rounded border border-rose-300 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50">
+                          <ConfirmSubmitButton
+                            confirm={`Smazat uživatele ${u.email}? Nelze zpět vrátit.`}
+                          >
                             Smazat
-                          </button>
+                          </ConfirmSubmitButton>
                         </form>
                       </div>
                     )}
@@ -162,12 +166,7 @@ export default async function UsersPage() {
             <option value="user">user</option>
             <option value="viewer">viewer</option>
           </select>
-          <button
-            type="submit"
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-          >
-            Přidat
-          </button>
+          <SubmitButton pendingLabel="Přidávám…">Přidat</SubmitButton>
         </form>
       </section>
     </div>

@@ -3,6 +3,7 @@ import { getEmployee } from '@/lib/repos/employees';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { updateEmployeeAction } from '../actions';
+import SubmitButton from '@/components/SubmitButton';
 
 export default async function EditEmployeePage({
   params,
@@ -113,12 +114,7 @@ export default async function EditEmployeePage({
 
         <Field name="notes" label="Poznámky" defaultValue={e.notes ?? ''} colSpan placeholder="vnitřní poznámka" />
 
-        <button
-          type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          Uložit změny
-        </button>
+        <SubmitButton pendingLabel="Ukládám…">Uložit změny</SubmitButton>
       </form>
     </div>
   );

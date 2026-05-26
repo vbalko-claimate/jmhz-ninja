@@ -1,6 +1,7 @@
 import { requireRole } from '@/lib/auth';
 import { getAppConfig, updateAppConfig } from '@/lib/repos/app-config';
 import { revalidatePath } from 'next/cache';
+import SubmitButton from '@/components/SubmitButton';
 
 export default async function AppConfigPage() {
   await requireRole(['admin']);
@@ -136,12 +137,7 @@ export default async function AppConfigPage() {
           />
         </fieldset>
 
-        <button
-          type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          Uložit
-        </button>
+        <SubmitButton pendingLabel="Ukládám…">Uložit</SubmitButton>
       </form>
     </div>
   );

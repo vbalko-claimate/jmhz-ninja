@@ -6,6 +6,8 @@ import {
 } from '@/lib/repos/legal-params';
 import { formatCZK } from '@/lib/money';
 import { revalidatePath } from 'next/cache';
+import SubmitButton from '@/components/SubmitButton';
+import ConfirmSubmitButton from '@/components/ConfirmSubmitButton';
 
 export default async function LegalParamsPage() {
   await requireRole(['admin']);
@@ -73,12 +75,11 @@ export default async function LegalParamsPage() {
                         await deleteAction(r.id);
                       }}
                     >
-                      <button
-                        type="submit"
-                        className="rounded border border-rose-300 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
+                      <ConfirmSubmitButton
+                        confirm={`Smazat verzi platnou od ${r.effectiveFrom}? Historické payrolly mají snapshot, takže nebudou ovlivněny.`}
                       >
                         Smazat
-                      </button>
+                      </ConfirmSubmitButton>
                     </form>
                   )}
                 </td>
@@ -118,12 +119,7 @@ export default async function LegalParamsPage() {
           />
           <Field name="note" label="Poznámka" colSpan />
           <div className="col-span-full">
-            <button
-              type="submit"
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-            >
-              Uložit verzi
-            </button>
+            <SubmitButton pendingLabel="Ukládám verzi…">Uložit verzi</SubmitButton>
           </div>
         </form>
       </section>

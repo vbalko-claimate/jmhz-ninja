@@ -3,6 +3,8 @@ import { db } from '@/lib/db/client';
 import { backupSettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import SubmitButton from '@/components/SubmitButton';
+import RunBackupButton from './RunBackupButton';
 
 async function getBackupSettings() {
   const [row] = await db.select().from(backupSettings).where(eq(backupSettings.id, 1));
@@ -32,14 +34,6 @@ export default async function BackupSettingsPage() {
         gdriveFolderId: String(formData.get('gdriveFolderId') ?? '').trim() || null,
       })
       .where(eq(backupSettings.id, 1));
-    revalidatePath('/settings/backup');
-  }
-
-  async function runNow() {
-    'use server';
-    await requireRole(['admin']);
-    const { runBackupNow } = await import('@/lib/backup/gdrive');
-    await runBackupNow();
     revalidatePath('/settings/backup');
   }
 
@@ -115,30 +109,16 @@ export default async function BackupSettingsPage() {
             <code>GDRIVE_FOLDER_ID</code>.
           </span>
         </label>
-        <button
-          type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          Uložit
-        </button>
+        <SubmitButton pendingLabel="Ukládám…">Uložit</SubmitButton>
       </form>
 
-      <form
-        action={runNow}
-        className="rounded-xl border border-slate-200 bg-white p-5"
-      >
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-lg font-medium">Manuální spuštění</h2>
         <p className="mb-3 text-sm text-slate-500">
           Spustí stejný proces jako noční cron — snapshot DB, volitelné šifrování, upload.
         </p>
-        <button
-          type="submit"
-          disabled={!gdriveConfigured}
-          className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:bg-slate-300"
-        >
-          Spustit zálohu nyní
-        </button>
-      </form>
+        <RunBackupButton disabled={!gdriveConfigured} />
+      </div>
 
       <div className="rounded-xl border border-rose-200 bg-rose-50 p-5">
         <h2 className="mb-2 text-lg font-medium text-rose-900">Obnovení ze zálohy</h2>
