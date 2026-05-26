@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -56,17 +57,38 @@ export default async function DashboardPage() {
   const visible = cards.filter((c) => c.roles.includes(role));
 
   return (
-    <section className="grid gap-3 sm:grid-cols-2">
-      {visible.map((c) => (
-        <Link
-          key={c.href}
-          href={c.href}
-          className="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow"
-        >
-          <div className="font-medium">{c.title}</div>
-          <div className="mt-1 text-sm text-slate-500">{c.desc}</div>
-        </Link>
-      ))}
-    </section>
+    <div className="space-y-8">
+      <header className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
+        <Image
+          src="/ninja.jpg"
+          alt="JMHZ Ninja"
+          width={140}
+          height={140}
+          priority
+          className="h-32 w-32 shrink-0 object-contain"
+        />
+        <div className="text-center sm:text-left">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Vítej, {session?.user?.name?.split(' ')[0] ?? 'admine'}.
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Měsíční odměny členů výboru SVJ a JMHZ pro ČSSZ — bez papírů.
+          </p>
+        </div>
+      </header>
+
+      <section className="grid gap-3 sm:grid-cols-2">
+        {visible.map((c) => (
+          <Link
+            key={c.href}
+            href={c.href}
+            className="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow"
+          >
+            <div className="font-medium">{c.title}</div>
+            <div className="mt-1 text-sm text-slate-500">{c.desc}</div>
+          </Link>
+        ))}
+      </section>
+    </div>
   );
 }
