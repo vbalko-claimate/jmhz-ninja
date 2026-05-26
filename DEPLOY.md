@@ -1,0 +1,314 @@
+# Deploy JMHZ Ninja do Coolify
+
+Kompletní průvodce nasazením, včetně získání všech secretů. Bude vás stát zhruba 30–45 minut, většina je klikání v Google Cloud Console.
+
+---
+
+## Co budete potřebovat
+
+- Funkční Coolify instance na Azure VM (nebo jiném serveru) — dále jen „Coolify".
+- GitHub účet s přístupem k tomuto repu.
+- Google účet (pro OAuth + Drive backup).
+- Doménu nebo subdoménu, kterou nasměrujete na Coolify (např. `jmhz.example.com`).
+
+---
+
+## 1) Vygenerujte `AUTH_SECRET`
+
+Auth.js používá tento secret k podepisování JWT session tokenů. Nikdy ho nesdílejte, nikam necommitujte.
+
+```bash
+openssl rand -base64 32
+```
+
+Výstup např. `K7p8...EXAMPLE...x9q=`. Uložte si ho — vložíte do Coolify ENV jako `AUTH_SECRET`.
+
+---
+
+## 2) Google OAuth credentials
+
+Aplikace přihlašuje přes Google. Potřebujete OAuth 2.0 Client ID.
+
+### 2.1 Vytvořte / vyberte GCP projekt
+
+1. https://console.cloud.google.com/projectcreate
+2. Pojmenujte projekt např. `jmhz-ninja`.
+
+### 2.2 Zapněte OAuth consent screen
+
+1. https://console.cloud.google.com/apis/credentials/consent
+2. **User type:** External (pokud nemáte Google Workspace).
+3. Vyplňte minimum:
+   - App name: `JMHZ Ninja`
+   - User support email: váš email
+   - Developer contact: váš email
+4. **Scopes:** přidat `.../auth/userinfo.email`, `.../auth/userinfo.profile`, `openid`.
+5. **Test users** (pokud necháváte v *Testing* stavu):
+   - přidejte všechny e-maily, které se budou přihlašovat (vy + ostatní)
+6. Save & continue.
+
+> 💡 V *Testing* stavu funguje OAuth bez omezení pro test users. Publishing do produkce vyžaduje Google verifikaci jen pokud používáte sensitive scopes — pro náš čistě email/profile scope **nemusíte** verifikovat a stačí *Testing*.
+
+### 2.3 Vytvořte OAuth Client ID
+
+1. https://console.cloud.google.com/apis/credentials
+2. **+ Create credentials → OAuth client ID**
+3. **Application type:** Web application
+4. **Name:** `JMHZ Ninja (production)`
+5. **Authorized JavaScript origins:**
+   - `https://jmhz.example.com` ← vaše produkční doména
+   - (volitelně `http://localhost:3000` pro lokální vývoj)
+6. **Authorized redirect URIs:**
+   - `https://jmhz.example.com/api/auth/callback/google`
+   - (volitelně `http://localhost:3000/api/auth/callback/google`)
+7. Create → zobrazí se vám:
+   - **Client ID** → uložte jako `AUTH_GOOGLE_ID`
+   - **Client secret** → uložte jako `AUTH_GOOGLE_SECRET`
+
+---
+
+## 3) Google Drive service account pro zálohy
+
+Aplikace zálohuje SQLite DB a archivuje reporty do dedikované Drive složky pomocí service account (nezávisle na vašem osobním účtu).
+
+### 3.1 Zapněte Google Drive API
+
+1. https://console.cloud.google.com/apis/library/drive.googleapis.com
+2. **Enable**.
+
+### 3.2 Vytvořte service account
+
+1. https://console.cloud.google.com/iam-admin/serviceaccounts
+2. **+ Create service account**
+3. **Name:** `jmhz-ninja-backup`
+4. **Service account ID:** vyplní se automaticky (např. `jmhz-ninja-backup@jmhz-ninja.iam.gserviceaccount.com`) — **zkopírujte si tento email**.
+5. **Grant access** kroky přeskočte (žádné role nepotřebujeme — service account potřebuje jen práva, která dostane sdílením Drive složky).
+6. Done.
+
+### 3.3 Vygenerujte JSON klíč
+
+1. V seznamu service accountů klikněte na `jmhz-ninja-backup@...`.
+2. Záložka **Keys → Add Key → Create new key → JSON → Create**.
+3. Stáhne se soubor `jmhz-ninja-xxxxxxxx.json`. **Tento soubor je tajný — necommitujte ho.**
+
+### 3.4 Vytvořte Drive složku a sdílejte se SA
+
+1. Otevřete https://drive.google.com.
+2. Vytvořte složku, např. `JMHZ Ninja — Backup`.
+3. **Pravý klik → Share**.
+4. Vložte email service accountu (`jmhz-ninja-backup@jmhz-ninja.iam.gserviceaccount.com`).
+5. Role: **Editor** (Content manager).
+6. **Send / Share**. (Google upozorní, že to není Google účet — to je v pořádku, je to service account.)
+
+### 3.5 Zjistěte Folder ID
+
+Otevřete vytvořenou složku v prohlížeči. URL vypadá takto:
+```
+https://drive.google.com/drive/folders/1AbCdEf...XYZ
+                                       ^^^^^^^^^^^^^^^^
+                                       toto je folder ID
+```
+
+Uložte si ho jako `GDRIVE_FOLDER_ID`.
+
+### 3.6 Připravte JSON klíč pro ENV proměnnou
+
+Coolify ENV nepodporuje multi-line hodnoty čistě. Stáhnutý JSON je multi-line — buď ho minifikujte:
+
+```bash
+jq -c . < jmhz-ninja-xxxxxxxx.json
+```
+
+…nebo jednoduše:
+
+```bash
+cat jmhz-ninja-xxxxxxxx.json | tr -d '\n' | tr -s ' '
+```
+
+Výsledek (jeden dlouhý řádek začínající `{"type":"service_account",...`) uložte jako `GDRIVE_SA_KEY_JSON`.
+
+---
+
+## 4) Šifrovací heslo pro zálohy (volitelné)
+
+Pokud chcete zálohy v Drive šifrovat AES-256-GCM:
+
+```bash
+openssl rand -base64 24
+```
+
+Uložte jako `BACKUP_PASSPHRASE`. **Toto heslo si pečlivě uschovejte mimo aplikaci** (password manager) — bez něj neobnovíte zálohu.
+
+Pokud `BACKUP_PASSPHRASE` v ENV nenastavíte, zálohy se nebudou šifrovat (přepínač v Settings → Backup pak bude zašedlý).
+
+---
+
+## 5) Coolify deploy
+
+### 5.1 Vytvořte resource
+
+1. V Coolify dashboardu **+ New Resource → Public Repository**.
+2. **Git source:** `https://github.com/vbalko-claimate/jmhz-ninja` (nebo váš fork).
+3. **Branch:** `main`.
+4. **Build pack:** `Dockerfile`.
+
+### 5.2 Persistent volume
+
+V resource → **Storages → + Add**:
+
+- **Mount path:** `/app/data`
+- **Name:** `jmhz-data`
+
+Sem se ukládá `svj.db` a dočasné soubory zálohy. Při redeployi nezmizí.
+
+### 5.3 Doména
+
+V resource → **Domains** přidejte `https://jmhz.example.com`. Coolify vám vygeneruje Let's Encrypt cert.
+
+### 5.4 Environment variables
+
+V resource → **Environment Variables**:
+
+| Klíč | Hodnota |
+|---|---|
+| `AUTH_SECRET` | Výstup z `openssl rand -base64 32` (krok 1) |
+| `AUTH_URL` | `https://jmhz.example.com` |
+| `AUTH_GOOGLE_ID` | Z kroku 2.3 |
+| `AUTH_GOOGLE_SECRET` | Z kroku 2.3 |
+| `ADMIN_EMAILS` | `vase-adresa@gmail.com` (čárkou oddělené) |
+| `DB_PATH` | `/app/data/svj.db` |
+| `GDRIVE_SA_KEY_JSON` | Minifikovaný JSON z kroku 3.6 |
+| `GDRIVE_FOLDER_ID` | ID složky z kroku 3.5 |
+| `BACKUP_PASSPHRASE` | Z kroku 4 — **nebo nechte prázdné** |
+
+Všechny secrety v Coolify označte jako **Secret** (skrytí v UI).
+
+### 5.5 Healthcheck
+
+Coolify ho čte z Dockerfile. Default: `GET /api/health`. Žádné další nastavení nepotřeba.
+
+### 5.6 Deploy
+
+**Deploy** v Coolify UI. Build trvá zhruba 3–5 minut (multi-stage Docker).
+
+Při startu kontejner:
+1. Aplikuje Drizzle migrace na `svj.db`.
+2. Seedne singleton `app_config`, `backup_settings`, a 2026 `legal_parameters`.
+3. Nastartuje Next.js server na portu 3000.
+4. Armuje cron pro noční zálohu (02:00 Europe/Prague).
+
+---
+
+## 6) První přihlášení a setup
+
+1. Otevřete `https://jmhz.example.com` v prohlížeči.
+2. Redirect na `/login` → klikněte **Přihlásit se přes Google**.
+3. Vyberte účet z `ADMIN_EMAILS`.
+4. Po prvním loginu jste admin. V DB se vytvoří záznam v `users`.
+5. V navigaci klikněte **Nastavení**:
+   - **Nastavení SVJ** — IČO, název, adresa, účet FÚ, VS ČSSZ.
+   - **Zákonné parametry** — zkontrolujte 2026 hodnoty, případně přidejte nové verze.
+   - **Zaměstnanci** — přidejte 4 členy výboru. Pro JMHZ jsou povinné `OIC` a `ID PPV` z ČSSZ.
+   - **Uživatelé** — pokud chcete přidat účetní jako `viewer` nebo dalšího `user`, dejte sem jejich email + roli. Login si JIT vytvoří účet při Google přihlášení.
+   - **Zálohy** — zkontrolujte stav (Drive SA + passphrase). Klikněte **Spustit zálohu nyní** pro ověření, že upload funguje.
+6. Otevřete `/dashboard → Měsíční payroll`, uložte první měsíc a vyzkoušejte exporty.
+
+---
+
+## 7) Verifikace deploy (checklist)
+
+- [ ] `https://jmhz.example.com/api/health` vrací `{"ok":true,...}`.
+- [ ] Login Googlem funguje, redirect na dashboard.
+- [ ] Po vytvoření zaměstnance a uložení payrollu vidím záznam v `/exports`.
+- [ ] Stáhnu CSV, TXT, PDF — sedí čísla.
+- [ ] Stáhnu JMHZ XML — soubor je validní XML (i když finální tagy validujte proti XSD po `pnpm fetch-jmhz`).
+- [ ] „Spustit zálohu nyní" → v Drive složce přibude `svj-YYYY-MM-DD.db` (nebo `.db.enc`).
+- [ ] V `/settings/backup` se aktualizoval `lastBackupAt`.
+- [ ] Lock workflow: po označení odeslání vznikne `archive/YYYY/MM-submitted/` ve Drive s CSV+TXT+PDF+XLSX+XML+JSON.
+
+---
+
+## 8) Update a rollback
+
+### Update
+```bash
+# z lokálu:
+git push origin main
+# v Coolify klikněte „Deploy" — pull, build, swap kontejneru.
+```
+
+Migrace se aplikují automaticky při startu.
+
+### Rollback
+V Coolify → resource → **Deployments** → vyberte předchozí deployment → **Redeploy**.
+
+Pokud migrace přidala nekompatibilní změnu schématu, ručně:
+```bash
+# SSH na VM
+docker exec -it <container> /bin/sh
+node ./node_modules/.bin/tsx lib/db/migrate.ts  # rolloutuje až k aktuální verzi
+```
+
+Drizzle nemá out-of-the-box rollback — pokud potřebujete starou verzi DB, použijte zálohu z Drive (`pnpm restore-backup`).
+
+---
+
+## 9) Restore zálohy
+
+Pokud potřebujete obnovit data:
+
+```bash
+# Stáhněte zálohu z Drive lokálně, např. svj-2026-05-20.db.enc
+
+# Plaintext záloha:
+pnpm restore-backup svj-2026-05-20.db ./data/svj.db
+
+# Šifrovaná záloha (interaktivně se zeptá na BACKUP_PASSPHRASE):
+pnpm restore-backup svj-2026-05-20.db.enc ./data/svj.db
+```
+
+Pak nahrajte vzniklý `svj.db` do Coolify volume `/app/data/` (přes SSH nebo Coolify file manager) a restartujte kontejner.
+
+---
+
+## 10) Troubleshooting
+
+### „Přihlášení odmítnuto" po Google loginu
+- E-mail není v `ADMIN_EMAILS` (pro prvního admina) ani v DB tabulce `users`.
+- V Coolify ověřte `ADMIN_EMAILS`, redeploy.
+
+### „redirect_uri_mismatch" z Google
+- V Google Cloud Console → OAuth client → Authorized redirect URIs musí být přesně `https://vase-domena/api/auth/callback/google`.
+
+### Backup selhal — „Drive folder not configured"
+- Buď není `GDRIVE_FOLDER_ID` v ENV, nebo nesouhlasí s ID složky.
+- Zkontrolujte také, že SA email má ve sdílení složky roli **Editor**.
+
+### Backup selhal — „insufficient permissions"
+- Drive API není zapnuté v projektu (krok 3.1).
+- Service account nemá Editor přístup k cílové složce.
+
+### Build padá v Coolify s „type error"
+- Coolify používá Docker, který provádí TypeScript check. Vyzkoušejte lokálně `AUTH_SECRET=x ADMIN_EMAILS=x@x pnpm build` — chyby uvidíte rychleji.
+
+### „Cannot find module 'better-sqlite3'"
+- Native binárka se nepřeložila v `deps` stage. Většinou kvůli nesprávné Node verzi. Drží se `node:24-bookworm-slim` v Dockerfile.
+
+### Změna domény po nasazení
+1. V Coolify upravte domain.
+2. V Google Cloud Console → OAuth client přidejte novou redirect URI.
+3. V Coolify upravte `AUTH_URL` na novou doménu.
+4. Redeploy.
+
+---
+
+## Reference (kdy aktualizovat ENV?)
+
+| Změna | Co udělat |
+|---|---|
+| Přidat dalšího admina | `ADMIN_EMAILS` v Coolify, redeploy. Po prvním loginu vznikne v DB. (Nebo přidejte v Settings → Uživatelé.) |
+| Přidat user/viewer | Stačí Settings → Uživatelé, žádný redeploy. |
+| Změnit Google OAuth secret | `AUTH_GOOGLE_SECRET` v Coolify, redeploy. |
+| Změnit Drive složku | `GDRIVE_FOLDER_ID` v Coolify nebo v Settings → Backup. |
+| Zapnout / vypnout šifrování zálohy | Settings → Backup → checkbox (vyžaduje, aby `BACKUP_PASSPHRASE` byl v ENV). |
+| Změnit zákonné parametry (limit, sazba) | Settings → Zákonné parametry → přidat verzi s `effective_from`. **Nikdy needitovat historické verze** — payroll snapshoty by ztratily kontext. |

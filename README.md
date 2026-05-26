@@ -68,17 +68,14 @@ Zdrojové dokumenty od ČSSZ/MPSV jsou stahovány skriptem `scripts/fetch-jmhz.s
 
 ## Deployment (Coolify)
 
-1. V Coolify vytvoř nový resource z GitHub repa (Dockerfile build pack).
-2. Persistent volume: `/app/data` (SQLite + tmp soubory).
-3. ENV proměnné (viz `.env.example`):
-   - `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_URL=https://<vase-domena>`
-   - `ADMIN_EMAILS`
-   - `GDRIVE_SA_KEY_JSON` (inline service account JSON, escapovaný)
-   - `GDRIVE_FOLDER_ID`
-   - `BACKUP_PASSPHRASE` (volitelně, pro šifrované zálohy)
-4. Healthcheck endpoint: `GET /api/health`.
-5. Při startu kontejneru se automaticky aplikují migrace a seedne se singleton config.
-6. Backup scheduler je armovaný pouze v `NODE_ENV=production` (instrumentation.ts).
+Kompletní krok-za-krokem návod včetně získání všech Google OAuth a Drive secretů najdete v **[DEPLOY.md](./DEPLOY.md)**.
+
+Quick summary:
+1. V Coolify nový resource z GitHub repa (Dockerfile build pack).
+2. Persistent volume: `/app/data`.
+3. ENV proměnné (viz `.env.example` + DEPLOY.md sekce 5.4).
+4. Healthcheck: `GET /api/health`.
+5. Migrace + seed se aplikují automaticky při startu kontejneru.
 
 ## Restore zálohy
 
