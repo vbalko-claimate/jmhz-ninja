@@ -156,10 +156,18 @@ Pokud `BACKUP_PASSPHRASE` v ENV nenastavíte, zálohy se nebudou šifrovat (pře
 
 V resource → **Storages → + Add**:
 
-- **Mount path:** `/app/data`
+- **Source type:** **Volume** (Docker named volume) — **ne** *file*, **ne** *bind directory*
 - **Name:** `jmhz-data`
+- **Mount path:** `/app/data`
+- **Is directory:** ✅ ano
 
-Sem se ukládá `svj.db` a dočasné soubory zálohy. Při redeployi nezmizí.
+> ⚠️ Musí to být **Volume / directory**, ne *file mount*. SQLite v WAL módu (který používáme pro výkon a konzistenci zálohy přes `VACUUM INTO`) drží vedle `svj.db` ještě dva pomocné soubory `svj.db-wal` a `svj.db-shm`. File mount by chytil jen jeden a způsobil ztrátu dat při restartu.
+>
+> Volume je preferovaný před bind-mountem (host path): Coolify ho spravuje, nemusíte řešit ownership na hostiteli, a backup do Drive funguje stejně tak jako tak.
+
+Co se sem ukládá:
+- `svj.db` + `svj.db-wal` + `svj.db-shm` — SQLite databáze
+- `/app/data` je jediná persistentní cesta; `tmp/` pro snapshot zálohy je v `/app/tmp` (efemérní, neperzistuje, to je v pořádku — generuje se znova).
 
 ### 5.3 Doména
 
