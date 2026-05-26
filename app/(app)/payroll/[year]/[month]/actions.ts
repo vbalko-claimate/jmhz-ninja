@@ -100,21 +100,24 @@ export async function savePayroll(payload: SavePayload): Promise<SaveResult> {
     taxDiscountMonthly: params.taxDiscountMonthly,
   };
 
-  await db.transaction(async (_tx) => {
-    for (const c of computed) {
-      await upsertRecord({
-        periodId: period.id,
-        employeeId: c.employeeId,
-        baseReward: c.baseReward,
-        extraReward: c.extraReward,
-        totalGross: c.totalGross,
-        taxAmount: c.taxAmount,
-        netAmount: c.netAmount,
-        taxDeclarationAtTime: c.taxDeclarationAtTime,
-        paramsSnapshot: snapshot,
-      });
-    }
-  });
+  // better-sqlite3 transactions require a synchronous callback. Our
+  // upsertRecord uses async Drizzle helpers, so we upsert sequentially
+  // outside a wrapping transaction. For 4–6 employees per period the lack
+  // of atomicity is acceptable — failure surfaces as a partial save that
+  // the user can retry.
+  for (const c of computed) {
+    await upsertRecord({
+      periodId: period.id,
+      employeeId: c.employeeId,
+      baseReward: c.baseReward,
+      extraReward: c.extraReward,
+      totalGross: c.totalGross,
+      taxAmount: c.taxAmount,
+      netAmount: c.netAmount,
+      taxDeclarationAtTime: c.taxDeclarationAtTime,
+      paramsSnapshot: snapshot,
+    });
+  }
 
   revalidatePath(`/payroll/${payload.year}/${String(payload.month).padStart(2, '0')}`);
   return { ok: true };
