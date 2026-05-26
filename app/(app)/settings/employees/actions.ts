@@ -29,6 +29,15 @@ function parseEmployeeForm(formData: FormData) {
     isTaxDeclarationSigned: bool(formData, 'isTaxDeclarationSigned'),
     csszOic: str(formData, 'csszOic') || null,
     csszIdPpv: str(formData, 'csszIdPpv') || null,
+    nativeSurname: str(formData, 'nativeSurname') || null,
+    birthDate: str(formData, 'birthDate') || null,
+    birthPlace: str(formData, 'birthPlace') || null,
+    citizenship: str(formData, 'citizenship') || 'CZ',
+    healthInsurance: str(formData, 'healthInsurance') || null,
+    employmentStartDate: str(formData, 'employmentStartDate') || null,
+    functionTitle: str(formData, 'functionTitle') || null,
+    employmentCategory: str(formData, 'employmentCategory') || 'Q',
+    notes: str(formData, 'notes') || null,
   };
 }
 

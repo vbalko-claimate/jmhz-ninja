@@ -126,34 +126,95 @@ export default async function EmployeesPage() {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-3 text-lg font-medium">Přidat zaměstnance</h2>
-        <form action={createEmployeeAction} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field name="firstName" label="Jméno" required />
-          <Field name="lastName" label="Příjmení" required />
-          <Field name="personalId" label="Rodné číslo" placeholder="800101/1234" required />
-          <Field
-            name="defaultGrossReward"
-            label="Výchozí měsíční odměna (Kč)"
-            type="number"
-            step="0.01"
-            placeholder="3000.00"
-            required
-          />
-          <Field name="bankAccount" label="Bankovní účet" placeholder="123456789/0100" />
-          <Field name="csszOic" label="OIC (ČSSZ)" />
-          <Field name="csszIdPpv" label="ID PPV (ČSSZ)" />
-          <label className="flex items-center gap-2 self-end text-sm">
-            <input type="checkbox" name="isTaxDeclarationSigned" className="rounded" />
-            Podepsané prohlášení k dani
-          </label>
-          <div className="col-span-full">
-            <button
-              type="submit"
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-            >
-              Uložit
-            </button>
-          </div>
+        <h2 className="mb-1 text-lg font-medium">Přidat zaměstnance</h2>
+        <p className="mb-4 text-xs text-slate-500">
+          OIC a ID PPV získáte z odpovědi ČSSZ po podání ONZ. Detail viz{' '}
+          <a href="/help" className="underline">
+            Nápověda
+          </a>
+          .
+        </p>
+        <form action={createEmployeeAction} className="space-y-4">
+          <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <legend className="text-xs font-semibold uppercase text-slate-500">Osobní údaje</legend>
+            <Field name="firstName" label="Jméno" required />
+            <Field name="lastName" label="Příjmení" required />
+            <Field
+              name="nativeSurname"
+              label="Rodné příjmení"
+              gdpr="Citlivý GDPR údaj. Vyplňujte pouze pokud máte právní důvod (např. JMHZ vyžaduje u některých cizinců)."
+            />
+            <Field
+              name="personalId"
+              label="Rodné číslo"
+              placeholder="800101/1234"
+              required
+              gdpr="Vysoce citlivý údaj. Pro JMHZ je RČ povinné u občanů ČR — nutné vyplnit. Pro cizince stačí OIC/EČP."
+            />
+            <Field
+              name="birthDate"
+              label="Datum narození"
+              type="date"
+              gdpr="Citlivý údaj. JMHZ vyžaduje pouze u cizinců bez RČ. Pro občany ČR lze vynechat."
+            />
+            <Field
+              name="birthPlace"
+              label="Místo narození"
+              gdpr="Citlivý údaj. JMHZ vyžaduje pouze u cizinců. Pro občany ČR lze vynechat."
+            />
+            <Field name="citizenship" label="Občanství" defaultValue="CZ" />
+            <Field
+              name="healthInsurance"
+              label="Zdravotní pojišťovna"
+              placeholder="VZP (111)"
+              gdpr="Informativní — pro JMHZ není povinné. Slouží jen interně, pokud byste řešili kontakt se ZP."
+            />
+          </fieldset>
+
+          <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <legend className="text-xs font-semibold uppercase text-slate-500">Pracovněprávní vztah</legend>
+            <Field name="functionTitle" label="Funkce" placeholder="předseda / místopředseda / člen / úklid" />
+            <Field name="employmentStartDate" label="Datum nástupu" type="date" />
+            <Field name="csszOic" label="OIC (ČSSZ)" placeholder="10místné číslo" />
+            <Field name="csszIdPpv" label="ID PPV (ČSSZ)" placeholder="13místné číslo" />
+            <Field
+              name="employmentCategory"
+              label="Druh činnosti (JMHZ)"
+              defaultValue="Q"
+              placeholder="Q = členové kolektivních orgánů"
+            />
+            <Field
+              name="bankAccount"
+              label="Bankovní účet"
+              placeholder="123456789/0100"
+              gdpr="Finanční údaj. Vyplňte jen pokud aplikace bude generovat platební příkazy. Pro samotné JMHZ není potřeba."
+            />
+          </fieldset>
+
+          <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <legend className="text-xs font-semibold uppercase text-slate-500">Odměna</legend>
+            <Field
+              name="defaultGrossReward"
+              label="Výchozí měsíční hrubá odměna (Kč)"
+              type="number"
+              step="0.01"
+              placeholder="3000.00"
+              required
+            />
+            <label className="flex items-center gap-2 self-end text-sm">
+              <input type="checkbox" name="isTaxDeclarationSigned" className="rounded" />
+              Podepsané prohlášení k dani
+            </label>
+          </fieldset>
+
+          <Field name="notes" label="Poznámky" colSpan placeholder="vnitřní poznámka, např. změna od kdy, role apod." />
+
+          <button
+            type="submit"
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Uložit
+          </button>
         </form>
       </section>
     </div>
@@ -168,6 +229,8 @@ function Field({
   placeholder,
   step,
   defaultValue,
+  colSpan,
+  gdpr,
 }: {
   name: string;
   label: string;
@@ -176,10 +239,23 @@ function Field({
   placeholder?: string;
   step?: string;
   defaultValue?: string;
+  colSpan?: boolean;
+  gdpr?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-xs font-medium text-slate-600">{label}</span>
+    <label className={`flex flex-col gap-1 text-sm ${colSpan ? 'sm:col-span-2' : ''}`}>
+      <span className="flex items-center gap-1 text-xs font-medium text-slate-600">
+        {label}
+        {gdpr && (
+          <span
+            title={gdpr}
+            aria-label={gdpr}
+            className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700"
+          >
+            !
+          </span>
+        )}
+      </span>
       <input
         type={type}
         name={name}
@@ -189,6 +265,7 @@ function Field({
         defaultValue={defaultValue}
         className="rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
       />
+      {gdpr && <span className="text-[10px] text-amber-700">{gdpr}</span>}
     </label>
   );
 }

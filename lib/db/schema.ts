@@ -32,6 +32,19 @@ export const employees = sqliteTable('employees', {
     .default(false),
   csszOic: text('cssz_oic'),
   csszIdPpv: text('cssz_id_ppv'),
+
+  // Doplňková identifikační pole (z ČSSZ a podkladů od účetní)
+  nativeSurname: text('native_surname'), // rodné příjmení
+  birthDate: text('birth_date'), // YYYY-MM-DD
+  birthPlace: text('birth_place'),
+  citizenship: text('citizenship').default('CZ'),
+  healthInsurance: text('health_insurance'), // např. "VZP (111)" nebo "ZPMV (211)"
+  employmentStartDate: text('employment_start_date'), // YYYY-MM-DD
+  functionTitle: text('function_title'), // předseda / místopředseda / člen / úklid / atd.
+  employmentCategory: text('employment_category').default('Q'), // Q = členové kolektivních orgánů
+
+  notes: text('notes'),
+
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
@@ -96,6 +109,15 @@ export const appConfig = sqliteTable('app_config', {
   svjAddress: text('svj_address').notNull().default(''),
   taxOfficeAccount: text('tax_office_account').notNull().default(''),
   csszVs: text('cssz_vs').notNull().default(''),
+
+  // Doplňková pole (z ČSSZ usnesení a IS DS)
+  svjDatovaSchranka: text('svj_datova_schranka').default(''),
+  csszAccount: text('cssz_account').default(''), // pojistný účet, např. 21012-17925341/0710
+  osszCode: text('ossz_code').default(''), // např. 442
+  osszName: text('ossz_name').default(''), // např. "Karlovy Vary"
+  osszAddress: text('ossz_address').default(''),
+  osszEmail: text('ossz_email').default(''),
+  osszDatovaSchranka: text('ossz_datova_schranka').default(''),
 });
 
 export const legalParameters = sqliteTable('legal_parameters', {

@@ -30,6 +30,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                   Nastavení
                 </Link>
               )}
+              <Link href="/help" className="hover:text-slate-900">
+                Nápověda
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-500">
