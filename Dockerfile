@@ -56,8 +56,7 @@ COPY --from=build /app/lib ./lib
 COPY --from=build /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
 COPY --from=build /app/node_modules/bindings ./node_modules/bindings
 COPY --from=build /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
-COPY --from=build /app/node_modules/tsx ./node_modules/tsx
-COPY --from=build /app/node_modules/.bin/tsx ./node_modules/.bin/tsx
+COPY --from=build /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
 COPY scripts ./scripts
 COPY docker/entrypoint.sh /entrypoint.sh
 

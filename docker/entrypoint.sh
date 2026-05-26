@@ -2,13 +2,13 @@
 set -e
 
 echo "[entrypoint] applying drizzle migrations -> $DB_PATH"
-node ./node_modules/.bin/tsx lib/db/migrate.ts || {
+node lib/db/migrate.mjs || {
   echo "[entrypoint] migration failed" >&2
   exit 1
 }
 
 echo "[entrypoint] seeding singletons (idempotent)"
-node ./node_modules/.bin/tsx lib/db/seed.ts || true
+node lib/db/seed.mjs || true
 
 echo "[entrypoint] starting JMHZ Ninja"
 exec "$@"
