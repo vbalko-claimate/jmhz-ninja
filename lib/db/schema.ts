@@ -118,6 +118,11 @@ export const appConfig = sqliteTable('app_config', {
   osszAddress: text('ossz_address').default(''),
   osszEmail: text('ossz_email').default(''),
   osszDatovaSchranka: text('ossz_datova_schranka').default(''),
+
+  // Místo výkonu práce pro JMHZ form (vykonavanaPozice.mistoVykonuPrace)
+  workplaceObec: text('workplace_obec').default('Praha'),
+  workplaceKodObce: text('workplace_kod_obce').default('554782'), // ČSÚ kód obce, 6 číslic
+  workplaceKodStatu: text('workplace_kod_statu').default('CZ'),
 });
 
 export const legalParameters = sqliteTable('legal_parameters', {

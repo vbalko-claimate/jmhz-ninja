@@ -23,6 +23,9 @@ export default async function AppConfigPage() {
       osszAddress: get('osszAddress'),
       osszEmail: get('osszEmail'),
       osszDatovaSchranka: get('osszDatovaSchranka'),
+      workplaceObec: get('workplaceObec'),
+      workplaceKodObce: get('workplaceKodObce'),
+      workplaceKodStatu: get('workplaceKodStatu') || 'CZ',
     });
     revalidatePath('/settings/app');
   }
@@ -59,6 +62,29 @@ export default async function AppConfigPage() {
             defaultValue={cfg.taxOfficeAccount}
             placeholder="7720-XXXXXX/0710"
             colSpan
+          />
+        </fieldset>
+
+        <fieldset className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-2">
+          <legend className="px-2 text-xs font-semibold uppercase text-slate-500">
+            Místo výkonu práce (JMHZ)
+          </legend>
+          <Field
+            name="workplaceObec"
+            label="Obec"
+            defaultValue={cfg.workplaceObec ?? 'Praha'}
+            placeholder="např. Praha"
+          />
+          <Field
+            name="workplaceKodObce"
+            label="Kód obce (ČSÚ, 6 číslic)"
+            defaultValue={cfg.workplaceKodObce ?? '554782'}
+            placeholder="554782 = Hlavní město Praha"
+          />
+          <Field
+            name="workplaceKodStatu"
+            label="Kód státu (ISO 2)"
+            defaultValue={cfg.workplaceKodStatu ?? 'CZ'}
           />
         </fieldset>
 

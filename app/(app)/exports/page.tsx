@@ -2,6 +2,7 @@ import { requireRole } from '@/lib/auth';
 import { listPeriods } from '@/lib/repos/payroll';
 import { monthLabel } from '@/lib/utils';
 import Link from 'next/link';
+import ValidateXmlButton from './ValidateXmlButton';
 
 export default async function ExportsPage({
   searchParams,
@@ -66,6 +67,7 @@ export default async function ExportsPage({
                     label="XML JMHZ"
                     primary
                   />
+                  <ValidateXmlButton year={p.year} month={p.month} />
                   <Link
                     href={`/payroll/${yy}/${mm}`}
                     className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100"
