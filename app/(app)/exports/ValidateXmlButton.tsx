@@ -28,12 +28,20 @@ export default function ValidateXmlButton({ year, month }: { year: number; month
       setResult(data);
       if (data.ok === true) {
         toast.success(`XML JMHZ pro ${month}/${year} prošlo validací (${data.durationMs} ms).`);
+      } else if (data?.error === 'NO_RECORDS') {
+        toast.warning(
+          `Za ${month}/${year} nejsou uložené žádné odměny. Otevřete payroll, vyplňte a uložte, pak validujte.`,
+        );
       } else if (data?.missing) {
         toast.warning(
           `Některým zaměstnancům chybí povinná pole pro JMHZ (${data.missing.length}).`,
         );
-      } else if (Array.isArray(data?.errors)) {
+      } else if (Array.isArray(data?.errors) && data.errors.length > 0) {
         toast.error(`Validátor vrátil ${data.errors.length} chyb.`);
+      } else if (data?.error || data?.detail) {
+        toast.error(`Validace selhala: ${data.detail ?? data.error}`);
+      } else if (!res.ok) {
+        toast.error(`Validace selhala (HTTP ${res.status}).`);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
