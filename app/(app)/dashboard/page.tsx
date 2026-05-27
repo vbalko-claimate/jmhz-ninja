@@ -47,6 +47,14 @@ export default async function DashboardPage() {
       emoji: '📤',
     },
     {
+      href: '/documents',
+      title: 'Dokumenty',
+      desc: 'Podklady od účetní, sdělení ČSSZ, mzdové listy, smlouvy.',
+      roles: ['admin', 'user', 'viewer'],
+      accent: 'sky',
+      emoji: '🗂️',
+    },
+    {
       href: '/settings/employees',
       title: 'Zaměstnanci',
       desc: 'Spravovat členy výboru, RČ, OIC, ID PPV, bankovní účet.',

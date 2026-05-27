@@ -137,6 +137,28 @@ export const legalParameters = sqliteTable('legal_parameters', {
   note: text('note'),
 });
 
+export const documents = sqliteTable('documents', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  filename: text('filename').notNull(), // původní název
+  storedName: text('stored_name').notNull(), // UUID-based název na disku
+  mimeType: text('mime_type').notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
+  category: text('category', {
+    enum: ['podklady', 'oic', 'vs', 'mzdove-listy', 'jmhz-podani', 'protokol', 'smlouva', 'jine'],
+  })
+    .notNull()
+    .default('jine'),
+  description: text('description'),
+  // Volitelná vazba na konkrétní období
+  periodYear: integer('period_year'),
+  periodMonth: integer('period_month'),
+  uploadedByUserId: integer('uploaded_by_user_id').references(() => users.id),
+  uploadedByEmail: text('uploaded_by_email'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
 export const backupSettings = sqliteTable('backup_settings', {
   id: integer('id').primaryKey().default(1),
   encryptionEnabled: integer('encryption_enabled', { mode: 'boolean' }).notNull().default(false),
@@ -156,3 +178,5 @@ export type PayrollRecord = typeof payrollRecords.$inferSelect;
 export type AppConfig = typeof appConfig.$inferSelect;
 export type LegalParameters = typeof legalParameters.$inferSelect;
 export type BackupSettings = typeof backupSettings.$inferSelect;
+export type Document = typeof documents.$inferSelect;
+export type NewDocument = typeof documents.$inferInsert;

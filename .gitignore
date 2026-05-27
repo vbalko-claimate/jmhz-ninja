@@ -43,6 +43,7 @@ next-env.d.ts
 
 # SVJ — data & vendored binaries
 /data/
+/documents/
 /vendor/jmhz/
 *.db
 *.db-journal
