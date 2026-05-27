@@ -107,14 +107,14 @@ export default async function DashboardPage() {
 
         <div className="relative flex flex-col items-center gap-5 sm:flex-row sm:gap-8">
           <div className="relative animate-[float_6s_ease-in-out_infinite]">
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-400/30 to-teal-400/30 blur-xl" />
+            <div className="absolute inset-0 scale-90 rounded-full bg-gradient-to-br from-indigo-300/40 to-teal-300/40 blur-2xl" />
             <Image
               src="/ninja.jpg"
               alt="JMHZ Ninja"
               width={140}
               height={140}
               priority
-              className="relative h-32 w-32 shrink-0 rounded-2xl object-contain shadow-md ring-1 ring-slate-200"
+              className="relative h-32 w-32 shrink-0 object-contain mix-blend-multiply"
             />
           </div>
           <div className="text-center sm:text-left">
