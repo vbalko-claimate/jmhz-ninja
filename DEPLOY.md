@@ -282,6 +282,23 @@ pnpm restore-backup svj-2026-05-20.db.enc ./data/svj.db
 
 Pak nahrajte vzniklý `svj.db` do Coolify volume `/app/data/` (přes SSH nebo Coolify file manager) a restartujte kontejner.
 
+### Obnova dokumentů (DMS)
+
+Noční záloha vytváří vedle DB i `documents-YYYY-MM-DD.tar.gz[.enc]` — archiv
+celé složky `/app/data/documents`. Obnova:
+
+```bash
+# Šifrovaný archiv → dešifrovat (zeptá se na BACKUP_PASSPHRASE)
+pnpm restore-backup documents-2026-05-27.tar.gz.enc documents.tar.gz
+
+# Rozbalit (vznikne adresář documents/)
+tar -xzf documents.tar.gz
+
+# Nahrát obsah do volume
+scp -i <key> -r documents vm-claimate-coolify@<ip>:/tmp/
+ssh -i <key> ... "docker cp /tmp/documents <container>:/app/data/"
+```
+
 ---
 
 ## 10) Troubleshooting

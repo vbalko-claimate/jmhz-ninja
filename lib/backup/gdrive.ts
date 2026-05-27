@@ -1,12 +1,17 @@
 import { google } from 'googleapis';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { db, rawDb } from '@/lib/db/client';
 import { backupSettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { encryptFile } from './crypto';
 
+const execFileAsync = promisify(execFile);
 const TMP_DIR = path.join(process.cwd(), 'tmp');
+const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'svj.db');
+const DOCS_DIR = process.env.DOCUMENTS_DIR ?? path.join(path.dirname(DB_PATH), 'documents');
 
 function ensureTmp() {
   if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
@@ -35,6 +40,16 @@ async function getFolderId(): Promise<string> {
 
 async function snapshotDb(targetPath: string): Promise<void> {
   rawDb.exec(`VACUUM INTO '${targetPath.replace(/'/g, "''")}'`);
+}
+
+/** Vytvoří tar.gz složky documents. Vrátí null, pokud složka neexistuje nebo je prázdná. */
+async function archiveDocuments(targetPath: string): Promise<string | null> {
+  if (!fs.existsSync(DOCS_DIR)) return null;
+  const files = fs.readdirSync(DOCS_DIR).filter((f) => !f.startsWith('.'));
+  if (files.length === 0) return null;
+  // -C <parent> documents → archiv obsahuje cestu "documents/<soubor>"
+  await execFileAsync('tar', ['-czf', targetPath, '-C', path.dirname(DOCS_DIR), path.basename(DOCS_DIR)]);
+  return targetPath;
 }
 
 export async function uploadFile(
@@ -97,10 +112,36 @@ export async function runBackupNow(): Promise<{ uploaded: string[]; folderId: st
     uploadName = `svj-${date}.db.enc`;
   }
 
+  // Dokumenty → tar.gz (volitelně šifrované)
+  const docsTarPath = path.join(TMP_DIR, `documents-${date}.tar.gz`);
+  let docsUploadPath: string | null = null;
+  let docsUploadName = `documents-${date}.tar.gz`;
+  const createdTar = await archiveDocuments(docsTarPath).catch(() => null);
+  if (createdTar) {
+    if (encrypt) {
+      const enc = `${docsTarPath}.enc`;
+      await encryptFile(docsTarPath, enc, process.env.BACKUP_PASSPHRASE!);
+      docsUploadPath = enc;
+      docsUploadName = `documents-${date}.tar.gz.enc`;
+    } else {
+      docsUploadPath = docsTarPath;
+    }
+  }
+
   const uploaded: string[] = [];
+  const cleanup: string[] = [snapshotPath, docsTarPath];
+  if (uploadPath !== snapshotPath) cleanup.push(uploadPath);
+  if (docsUploadPath && docsUploadPath !== docsTarPath) cleanup.push(docsUploadPath);
+
   try {
     const id = await uploadFile(uploadPath, uploadName, folderId);
     uploaded.push(`${uploadName} (${id})`);
+
+    if (docsUploadPath) {
+      const docId = await uploadFile(docsUploadPath, docsUploadName, folderId);
+      uploaded.push(`${docsUploadName} (${docId})`);
+    }
+
     await db
       .update(backupSettings)
       .set({ lastBackupAt: new Date(), lastBackupStatus: 'OK' })
@@ -113,12 +154,9 @@ export async function runBackupNow(): Promise<{ uploaded: string[]; folderId: st
       .where(eq(backupSettings.id, 1));
     throw e;
   } finally {
-    try {
-      fs.unlinkSync(snapshotPath);
-    } catch {}
-    if (uploadPath !== snapshotPath) {
+    for (const f of cleanup) {
       try {
-        fs.unlinkSync(uploadPath);
+        fs.unlinkSync(f);
       } catch {}
     }
   }
