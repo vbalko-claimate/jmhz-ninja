@@ -3,14 +3,20 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { savePayroll, type SaveResult } from './actions';
+import { savePayroll, type SaveResult, type SaveRow } from './actions';
 import type { Employee } from '@/lib/db/schema';
+import { calculatePayroll, grossFromNet, type LegalParams } from '@/lib/payroll';
+import { formatCZK } from '@/lib/money';
 import { Spinner } from '@/components/Spinner';
+
+type Mode = 'gross' | 'net';
 
 type Row = {
   employeeId: number;
+  mode: Mode;
   baseReward: string;
   extraReward: string;
+  netReward: string;
 };
 
 export default function PayrollEditor({
@@ -18,22 +24,27 @@ export default function PayrollEditor({
   month,
   employees,
   initialRows,
+  params,
   locked,
 }: {
   year: number;
   month: number;
   employees: Employee[];
-  initialRows: Record<number, Row>;
+  initialRows: Record<number, { employeeId: number; baseReward: string; extraReward: string }>;
+  params: LegalParams;
   locked: boolean;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState<Record<number, Row>>(() => {
     const r: Record<number, Row> = {};
     for (const e of employees) {
-      r[e.id] = initialRows[e.id] ?? {
+      const stored = initialRows[e.id];
+      r[e.id] = {
         employeeId: e.id,
-        baseReward: e.defaultGrossReward,
-        extraReward: '0',
+        mode: 'gross',
+        baseReward: stored?.baseReward ?? e.defaultGrossReward,
+        extraReward: stored?.extraReward ?? '0',
+        netReward: '',
       };
     }
     return r;
@@ -41,18 +52,57 @@ export default function PayrollEditor({
   const [result, setResult] = useState<SaveResult | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function update(id: number, field: 'baseReward' | 'extraReward', value: string) {
-    setRows((r) => ({ ...r, [id]: { ...r[id], [field]: value } }));
+  function update(id: number, patch: Partial<Row>) {
+    setRows((r) => ({ ...r, [id]: { ...r[id], ...patch } }));
+  }
+
+  // Live breakdown for a row, computed with the same statutory logic the
+  // server uses on save (gross → net, or net → grossed-up).
+  function calcFor(emp: Employee, row: Row) {
+    return row.mode === 'net'
+      ? grossFromNet(
+          { netReward: row.netReward || '0', isTaxDeclarationSigned: emp.isTaxDeclarationSigned },
+          params,
+        )
+      : calculatePayroll(
+          {
+            baseReward: row.baseReward || '0',
+            extraReward: row.extraReward || '0',
+            isTaxDeclarationSigned: emp.isTaxDeclarationSigned,
+          },
+          params,
+        );
+  }
+
+  function toggleMode(emp: Employee, row: Row, next: Mode) {
+    if (next === row.mode) return;
+    const calc = calcFor(emp, row);
+    if (next === 'net') {
+      // Carry the currently computed net into the net field.
+      update(emp.id, { mode: 'net', netReward: calc.ok ? calc.netAmount.toFixed(2) : '' });
+    } else {
+      // Carry the grossed-up amount into the base field, drop the bonus.
+      update(emp.id, {
+        mode: 'gross',
+        baseReward: calc.ok ? calc.totalGross.toFixed(2) : '',
+        extraReward: '0',
+      });
+    }
   }
 
   function onSave() {
     startTransition(async () => {
-      const payload = {
-        year,
-        month,
-        rows: Object.values(rows),
-      };
-      const res = await savePayroll(payload);
+      const payloadRows: SaveRow[] = Object.values(rows).map((row) =>
+        row.mode === 'net'
+          ? { employeeId: row.employeeId, mode: 'net', netReward: row.netReward || '0' }
+          : {
+              employeeId: row.employeeId,
+              mode: 'gross',
+              baseReward: row.baseReward || '0',
+              extraReward: row.extraReward || '0',
+            },
+      );
+      const res = await savePayroll({ year, month, rows: payloadRows });
       setResult(res);
       if (res.ok) {
         toast.success(`Payroll ${month}/${year} uložen.`);
@@ -73,17 +123,20 @@ export default function PayrollEditor({
             <tr>
               <th className="px-3 py-2">Zaměstnanec</th>
               <th className="px-3 py-2">Prohlášení</th>
+              <th className="px-3 py-2">Zadávám</th>
               <th className="px-3 py-2 text-right">Základní odměna (Kč)</th>
               <th className="px-3 py-2 text-right">Bonus (Kč)</th>
+              <th className="px-3 py-2 text-right">Čistá odměna (Kč)</th>
+              <th className="px-3 py-2 text-right">Daň</th>
               <th className="px-3 py-2 text-right">Hrubá celkem</th>
             </tr>
           </thead>
           <tbody>
             {employees.map((e) => {
               const row = rows[e.id];
-              const total = (
-                Number(row?.baseReward || 0) + Number(row?.extraReward || 0)
-              ).toFixed(2);
+              const isNet = row.mode === 'net';
+              const calc = calcFor(e, row);
+              const exceeded = !calc.ok;
               return (
                 <tr key={e.id} className="border-t border-slate-100">
                   <td className="px-3 py-2 font-medium">
@@ -100,33 +153,83 @@ export default function PayrollEditor({
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-right">
-                    <input
-                      type="number"
-                      step="0.01"
+                  <td className="px-3 py-2">
+                    <ModeToggle
+                      mode={row.mode}
                       disabled={locked}
-                      value={row?.baseReward ?? ''}
-                      onChange={(ev) => update(e.id, 'baseReward', ev.target.value)}
-                      className="w-32 rounded-md border border-slate-300 px-2 py-1 text-right disabled:bg-slate-100"
+                      onChange={(m) => toggleMode(e, row, m)}
                     />
                   </td>
+                  {/* Základní odměna: editable in gross mode, computed gross in net mode */}
                   <td className="px-3 py-2 text-right">
-                    <input
-                      type="number"
-                      step="0.01"
-                      disabled={locked}
-                      value={row?.extraReward ?? ''}
-                      onChange={(ev) => update(e.id, 'extraReward', ev.target.value)}
-                      className="w-32 rounded-md border border-slate-300 px-2 py-1 text-right disabled:bg-slate-100"
-                    />
+                    {isNet ? (
+                      <span className="font-mono text-slate-700">
+                        {calc.ok ? calc.totalGross.toFixed(2) : '—'}
+                      </span>
+                    ) : (
+                      <input
+                        type="number"
+                        step="0.01"
+                        disabled={locked}
+                        value={row.baseReward}
+                        onChange={(ev) => update(e.id, { baseReward: ev.target.value })}
+                        className="w-32 rounded-md border border-slate-300 px-2 py-1 text-right disabled:bg-slate-100"
+                      />
+                    )}
                   </td>
-                  <td className="px-3 py-2 text-right font-mono">{total}</td>
+                  {/* Bonus: editable in gross mode only */}
+                  <td className="px-3 py-2 text-right">
+                    {isNet ? (
+                      <span className="text-slate-400">—</span>
+                    ) : (
+                      <input
+                        type="number"
+                        step="0.01"
+                        disabled={locked}
+                        value={row.extraReward}
+                        onChange={(ev) => update(e.id, { extraReward: ev.target.value })}
+                        className="w-32 rounded-md border border-slate-300 px-2 py-1 text-right disabled:bg-slate-100"
+                      />
+                    )}
+                  </td>
+                  {/* Čistá odměna: editable in net mode, computed in gross mode */}
+                  <td className="px-3 py-2 text-right">
+                    {isNet ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        disabled={locked}
+                        value={row.netReward}
+                        onChange={(ev) => update(e.id, { netReward: ev.target.value })}
+                        className="w-32 rounded-md border border-indigo-300 px-2 py-1 text-right disabled:bg-slate-100"
+                      />
+                    ) : (
+                      <span className="font-mono text-slate-700">
+                        {calc.ok ? calc.netAmount.toFixed(2) : '—'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-slate-500">
+                    {calc.ok ? calc.taxAmount.toFixed(2) : '—'}
+                  </td>
+                  <td
+                    className={`px-3 py-2 text-right font-mono ${
+                      exceeded ? 'font-semibold text-rose-600' : ''
+                    }`}
+                  >
+                    {calc.ok ? calc.totalGross.toFixed(2) : `${calc.totalGross.toFixed(2)} ⚠`}
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      <p className="text-xs text-slate-500">
+        Limit pojistného: {formatCZK(params.insuranceThreshold)} / měsíc. Při zadání čisté částky se
+        hrubá dopočítá podle zákonné srážkové daně.
+      </p>
 
       {result && !result.ok && result.reason === 'THRESHOLD_EXCEEDED' && (
         <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-900">
@@ -165,6 +268,36 @@ export default function PayrollEditor({
           {pending ? 'Ukládám…' : 'Uložit payroll'}
         </button>
       </div>
+    </div>
+  );
+}
+
+function ModeToggle({
+  mode,
+  disabled,
+  onChange,
+}: {
+  mode: Mode;
+  disabled: boolean;
+  onChange: (m: Mode) => void;
+}) {
+  return (
+    <div className="inline-flex overflow-hidden rounded-md border border-slate-300 text-xs">
+      {(['gross', 'net'] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(m)}
+          className={`px-2 py-1 transition ${
+            mode === m
+              ? 'bg-slate-900 text-white'
+              : 'bg-white text-slate-600 hover:bg-slate-50 disabled:hover:bg-white'
+          }`}
+        >
+          {m === 'gross' ? 'Hrubá' : 'Čistá'}
+        </button>
+      ))}
     </div>
   );
 }

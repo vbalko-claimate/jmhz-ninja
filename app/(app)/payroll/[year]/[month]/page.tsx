@@ -102,6 +102,11 @@ export default async function PayrollPage({
           month={month}
           employees={employees}
           initialRows={initialRows}
+          params={{
+            insuranceThreshold: paramsRow.insuranceThreshold,
+            taxRate: paramsRow.taxRate,
+            taxDiscountMonthly: paramsRow.taxDiscountMonthly,
+          }}
           locked={!canEdit || locked}
         />
       )}
