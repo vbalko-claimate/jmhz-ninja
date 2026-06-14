@@ -4,8 +4,9 @@ import { archivePeriodToDrive } from '@/lib/exports/archive';
 import { monthLabel } from '@/lib/utils';
 import { notFound, redirect } from 'next/navigation';
 import { reopenPeriodAction } from '../actions';
-import SubmitButton from '@/components/SubmitButton';
-import ConfirmSubmitButton from '@/components/ConfirmSubmitButton';
+import { ConfirmSubmitForm, ReopenForm, type SubmitState } from './SubmitForms';
+
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export default async function SubmitPage({
   params,
@@ -21,24 +22,42 @@ export default async function SubmitPage({
 
   const isSubmitted = period.status === 'submitted';
 
-  async function confirmSubmit(formData: FormData) {
+  async function confirmSubmit(_prev: SubmitState, formData: FormData): Promise<SubmitState> {
     'use server';
     await requireRole(['admin']);
     const reference = String(formData.get('reference') ?? '').trim();
-    if (!reference) throw new Error('Reference z e-Podání je povinná.');
+    if (!reference) return { error: 'Reference z e-Podání je povinná.' };
     const cur = await getPeriod(year, month);
-    if (!cur) throw new Error('Období neexistuje.');
+    if (!cur) return { error: 'Období neexistuje.' };
 
-    const archive = await archivePeriodToDrive(year, month);
-    await markSubmitted(cur.id, reference, archive.folderId);
+    // Archive first; a Drive failure must NOT lock the month, and the real
+    // reason is surfaced to the admin instead of an opaque 500.
+    let archive: Awaited<ReturnType<typeof archivePeriodToDrive>>;
+    try {
+      archive = await archivePeriodToDrive(year, month);
+    } catch (e) {
+      return {
+        error: `Archivace bundle do Google Drive selhala — měsíc NEbyl zamčen. Detail: ${errMsg(e)}`,
+      };
+    }
+    try {
+      await markSubmitted(cur.id, reference, archive.folderId);
+    } catch (e) {
+      return { error: `Uzamčení období selhalo: ${errMsg(e)}` };
+    }
+    // redirect() throws NEXT_REDIRECT — must stay outside the try/catch above.
     redirect(`/payroll/${year}/${String(month).padStart(2, '0')}`);
   }
 
-  async function reopenAction(formData: FormData) {
+  async function reopenAction(_prev: SubmitState, formData: FormData): Promise<SubmitState> {
     'use server';
     await requireRole(['admin']);
     const reason = String(formData.get('reason') ?? '').trim() || 'reopened by admin';
-    await reopenPeriodAction(year, month, reason);
+    try {
+      await reopenPeriodAction(year, month, reason);
+    } catch (e) {
+      return { error: `Odemčení selhalo: ${errMsg(e)}` };
+    }
     redirect(`/payroll/${year}/${String(month).padStart(2, '0')}`);
   }
 
@@ -64,27 +83,7 @@ export default async function SubmitPage({
         />
       )}
 
-      {!isSubmitted && (
-        <form action={confirmSubmit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-xs font-medium text-slate-600">
-              Reference / číslo potvrzení z e-Podání ČSSZ
-            </span>
-            <input
-              name="reference"
-              required
-              placeholder="např. 2026-04-15/0001234"
-              className="rounded-md border border-slate-300 px-3 py-1.5 font-mono text-sm focus:border-slate-500 focus:outline-none"
-            />
-          </label>
-          <SubmitButton
-            variant="success"
-            pendingLabel="Archivuji do Drive a zamykám…"
-          >
-            Potvrdit odeslání a zamknout
-          </SubmitButton>
-        </form>
-      )}
+      {!isSubmitted && <ConfirmSubmitForm action={confirmSubmit} />}
 
       {isSubmitted && (
         <div className="space-y-3 rounded-xl border border-emerald-300 bg-emerald-50 p-5">
@@ -113,20 +112,7 @@ export default async function SubmitPage({
             <summary className="cursor-pointer text-xs text-slate-600">
               Otevřít znovu (admin only — vyžaduje důvod)
             </summary>
-            <form action={reopenAction} className="mt-2 flex gap-2">
-              <input
-                name="reason"
-                required
-                placeholder="Důvod (audit log)"
-                className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
-              />
-              <ConfirmSubmitButton
-                confirm="Skutečně odemknout zamčený měsíc? Bude vyžadováno nové generování XML a opětovné odeslání."
-                pendingLabel="Odemykám…"
-              >
-                Odemknout
-              </ConfirmSubmitButton>
-            </form>
+            <ReopenForm action={reopenAction} />
           </details>
         </div>
       )}
@@ -172,7 +158,7 @@ function ValidationCheck({
           <Link href={backHref} className="underline">
             Exporty
           </Link>
-          , klikněte „Validovat ČSSZ" a opravte chyby.
+          , klikněte „Validovat ČSSZ&ldquo; a opravte chyby.
         </p>
       </div>
     );
