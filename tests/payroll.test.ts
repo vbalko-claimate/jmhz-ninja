@@ -47,22 +47,28 @@ describe('calculatePayroll — withholding tax (no declaration)', () => {
     }
   });
 
-  it('ceils 3333 * 15% = 499.95 → 500', () => {
+  it('floors 3333 * 15% = 499.95 → 499 (srážková daň na celé koruny dolů)', () => {
     const r = calculatePayroll(
       { baseReward: '3333', extraReward: '0', isTaxDeclarationSigned: false },
       PARAMS_2026,
     );
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.taxAmount.toString()).toBe('500');
+    if (r.ok) {
+      expect(r.taxAmount.toString()).toBe('499');
+      expect(r.netAmount.toString()).toBe('2834');
+    }
   });
 
-  it('ceils 3334 * 15% = 500.10 → 501', () => {
+  it('floors 3334 * 15% = 500.10 → 500', () => {
     const r = calculatePayroll(
       { baseReward: '3334', extraReward: '0', isTaxDeclarationSigned: false },
       PARAMS_2026,
     );
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.taxAmount.toString()).toBe('501');
+    if (r.ok) {
+      expect(r.taxAmount.toString()).toBe('500');
+      expect(r.netAmount.toString()).toBe('2834');
+    }
   });
 });
 
@@ -105,16 +111,16 @@ describe('calculatePayroll — extra reward (bonus)', () => {
 });
 
 describe('calculatePayroll — decimal inputs', () => {
-  it('handles halíře in input but rounds tax to whole CZK up', () => {
+  it('handles halíře in input but rounds tax to whole CZK down', () => {
     const r = calculatePayroll(
       { baseReward: '3333.33', extraReward: '0', isTaxDeclarationSigned: false },
       PARAMS_2026,
     );
     expect(r.ok).toBe(true);
     if (r.ok) {
-      // 3333.33 * 0.15 = 499.9995 → ceil → 500
-      expect(r.taxAmount.toString()).toBe('500');
-      expect(r.netAmount.toString()).toBe('2833.33');
+      // 3333.33 * 0.15 = 499.9995 → floor → 499
+      expect(r.taxAmount.toString()).toBe('499');
+      expect(r.netAmount.toString()).toBe('2834.33');
     }
   });
 });
@@ -130,12 +136,14 @@ describe('grossFromNet — reverse calculation (no declaration)', () => {
     }
   });
 
-  it('picks the smallest gross when a net is reachable from two grosses', () => {
-    // gross 1000 → tax ceil(150)=150 → net 850; gross 1001 → tax 151 → net 850.
+  it('picks the largest gross when a net is reachable from two grosses', () => {
+    // gross 999 → tax floor(149.85)=149 → net 850; gross 1000 → tax 150 → net 850.
+    // The reward actually paid (and filed) is the larger one at the tax boundary.
     const r = grossFromNet({ netReward: '850', isTaxDeclarationSigned: false }, PARAMS_2026);
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.totalGross.toString()).toBe('1000');
+      expect(r.taxAmount.toString()).toBe('150');
       expect(r.netAmount.toString()).toBe('850');
     }
   });
@@ -145,9 +153,26 @@ describe('grossFromNet — reverse calculation (no declaration)', () => {
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.netAmount.toString()).toBe('850.5');
-      // gross 1001.50 → tax ceil(150.225)=151 → net 850.50
-      expect(r.totalGross.toFixed(2)).toBe('1001.50');
-      expect(r.taxAmount.toString()).toBe('151');
+      // gross 1000.50 → tax floor(150.075)=150 → net 850.50
+      expect(r.totalGross.toFixed(2)).toBe('1000.50');
+      expect(r.taxAmount.toString()).toBe('150');
+    }
+  });
+
+  it('does not overshoot the real gross by 1 CZK (regression)', () => {
+    // gross 3334 → tax floor(500.10)=500 → net 2834. Entering 2834 must give
+    // 3334 back, not 3335 (the bug an UP-rounded tax produced).
+    const forward = calculatePayroll(
+      { baseReward: '3334', extraReward: '0', isTaxDeclarationSigned: false },
+      PARAMS_2026,
+    );
+    expect(forward.ok && forward.netAmount.toString()).toBe('2834');
+    const r = grossFromNet({ netReward: '2834', isTaxDeclarationSigned: false }, PARAMS_2026);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.totalGross.toString()).toBe('3334');
+      expect(r.taxAmount.toString()).toBe('500');
+      expect(r.netAmount.toString()).toBe('2834');
     }
   });
 
@@ -198,8 +223,9 @@ describe('grossFromNet — round-trips with calculatePayroll', () => {
         if (back.ok) {
           // The grossed-up amount must reproduce the same net exactly.
           expect(back.netAmount.toFixed(2)).toBe(forward.netAmount.toFixed(2));
-          // And it never exceeds the gross that produced that net.
-          expect(back.totalGross.lte(forward.totalGross)).toBe(true);
+          // It lands on the original gross, or within the 1 CZK tie-break band
+          // (two grosses can share one net at the whole-CZK tax boundary).
+          expect(back.totalGross.minus(forward.totalGross).abs().lte(1)).toBe(true);
         }
       });
     }

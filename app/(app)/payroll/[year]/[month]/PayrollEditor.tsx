@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { savePayroll, type SaveResult, type SaveRow } from './actions';
 import type { Employee } from '@/lib/db/schema';
 import { calculatePayroll, grossFromNet, type LegalParams } from '@/lib/payroll';
-import { formatCZK } from '@/lib/money';
+import { D, formatCZK } from '@/lib/money';
 import { Spinner } from '@/components/Spinner';
 
 type Mode = 'gross' | 'net';
@@ -114,6 +114,22 @@ export default function PayrollEditor({
       }
     });
   }
+
+  // Column totals across all rows (only rows that compute cleanly).
+  const totals = employees.reduce(
+    (acc, e) => {
+      const calc = calcFor(e, rows[e.id]);
+      if (calc.ok) {
+        acc.gross = acc.gross.plus(calc.totalGross);
+        acc.tax = acc.tax.plus(calc.taxAmount);
+        acc.net = acc.net.plus(calc.netAmount);
+      } else {
+        acc.anyExceeded = true;
+      }
+      return acc;
+    },
+    { gross: D(0), tax: D(0), net: D(0), anyExceeded: false },
+  );
 
   return (
     <div className="space-y-4">
@@ -223,6 +239,16 @@ export default function PayrollEditor({
               );
             })}
           </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-800">
+              <td className="px-3 py-2" colSpan={5}>
+                Celkem {totals.anyExceeded && <span className="text-rose-600">(bez překročených)</span>}
+              </td>
+              <td className="px-3 py-2 text-right font-mono">{totals.net.toFixed(2)}</td>
+              <td className="px-3 py-2 text-right font-mono">{totals.tax.toFixed(2)}</td>
+              <td className="px-3 py-2 text-right font-mono">{totals.gross.toFixed(2)}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 

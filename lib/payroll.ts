@@ -34,8 +34,13 @@ export type CalcResult = CalcOk | CalcFail;
  *
  * Rules:
  * - If totalGross > insuranceThreshold → blocked (social/health insurance kicks in).
- * - Withholding tax = ceil(totalGross * taxRate) on whole CZK (§ 146 ZDP).
- * - Signed tax declaration → subtract monthly personal discount, clamp at 0.
+ * - No signed declaration → withholding tax (srážková daň, zvláštní sazba, § 36):
+ *   the tax is rounded DOWN to whole CZK ("na celé koruny dolů"). This is what
+ *   the bank account and prior JMHZ filings reflect.
+ * - Signed declaration → advance tax (zálohová daň): rounded UP to whole CZK,
+ *   minus the monthly personal discount, clamped at 0. (For rewards below the
+ *   insurance threshold the discount always wipes the tax out, so this branch
+ *   yields 0 in practice.)
  */
 export function calculatePayroll(input: CalcInput, params: LegalParams): CalcResult {
   const baseReward = D(input.baseReward);
@@ -50,7 +55,8 @@ export function calculatePayroll(input: CalcInput, params: LegalParams): CalcRes
     return { ok: false, reason: 'THRESHOLD_EXCEEDED', totalGross, threshold };
   }
 
-  const computedTax = totalGross.times(taxRate).toDecimalPlaces(0, Decimal.ROUND_UP);
+  const rounding = input.isTaxDeclarationSigned ? Decimal.ROUND_UP : Decimal.ROUND_DOWN;
+  const computedTax = totalGross.times(taxRate).toDecimalPlaces(0, rounding);
 
   const finalTax = input.isTaxDeclarationSigned
     ? Decimal.max(new Decimal(0), computedTax.minus(discount))
@@ -70,17 +76,21 @@ export type NetCalcInput = {
  * Reverse ("grossing-up") calculation: given a desired NET payout, find the
  * GROSS reward whose statutory deductions produce exactly that net.
  *
- * The forward tax is a step function — tax = ceil(gross * rate) on whole CZK —
- * so we cannot simply divide by (1 - rate). Instead we enumerate the whole-CZK
- * pre-discount tax `t`, derive the only gross that could yield it
- * (gross = net + finalTax(t)), and keep it iff the forward rounding reproduces
- * the same `t`. With rate < 1 a solution always exists for any reachable net;
- * when two grosses map to the same net (rounding band), the smaller — i.e. the
- * tightest grossing-up — wins.
+ * The tax is a step function on whole CZK, so we cannot simply divide by
+ * (1 - rate). We enumerate the whole-CZK pre-discount tax `t`, derive the only
+ * gross that could yield it (gross = net + finalTax(t)), and keep it iff the
+ * forward calculation actually reproduces this net — so the inverse always
+ * stays consistent with {@link calculatePayroll}, whatever its rounding.
  *
- * The chosen gross is then run back through {@link calculatePayroll} so the
- * returned breakdown comes from the single authoritative forward code path
- * (and the insurance-threshold guard fires identically).
+ * A net can be reachable from two adjacent grosses (the rounding band where the
+ * whole-CZK tax ticks over). The real reward that produced a given net — the
+ * one in prior JMHZ filings and on the bank statement — is the LARGER gross in
+ * that band (it sits at the boundary where the tax just stepped up), so the
+ * largest gross at or below the insurance threshold wins.
+ *
+ * The chosen gross is run back through {@link calculatePayroll} so the returned
+ * breakdown comes from the single authoritative forward path (and the
+ * insurance-threshold guard fires identically).
  */
 export function grossFromNet(input: NetCalcInput, params: LegalParams): CalcResult {
   const net = D(input.netReward).toDecimalPlaces(2);
@@ -98,8 +108,8 @@ export function grossFromNet(input: NetCalcInput, params: LegalParams): CalcResu
     return forward(new Decimal(0));
   }
 
-  // Largest whole-CZK tax achievable on a gross at the insurance threshold.
-  const maxTax = threshold.times(taxRate).toDecimalPlaces(0, Decimal.ROUND_UP).toNumber();
+  // Whole-CZK tax never exceeds rate * threshold; +2 covers rounding slack.
+  const maxTax = threshold.times(taxRate).toDecimalPlaces(0, Decimal.ROUND_UP).toNumber() + 2;
 
   let best: Decimal | null = null;
   for (let t = 0; t <= maxTax; t++) {
@@ -108,8 +118,9 @@ export function grossFromNet(input: NetCalcInput, params: LegalParams): CalcResu
       ? Decimal.max(new Decimal(0), wholeTax.minus(discount))
       : wholeTax;
     const gross = net.plus(finalTax);
-    const recomputed = gross.times(taxRate).toDecimalPlaces(0, Decimal.ROUND_UP);
-    if (recomputed.equals(wholeTax) && (best === null || gross.lt(best))) {
+    if (gross.gt(threshold)) continue;
+    const result = forward(gross);
+    if (result.ok && result.netAmount.equals(net) && (best === null || gross.gt(best))) {
       best = gross;
     }
   }
