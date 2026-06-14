@@ -1,10 +1,24 @@
-import { Document, Page, Text, View, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Font, renderToBuffer } from '@react-pdf/renderer';
+import path from 'node:path';
 import React from 'react';
 import type { PayrollExport } from './data';
 import { monthLabel } from '@/lib/utils';
 
+// The built-in PDF fonts (Helvetica) only cover Latin-1, so Czech caron
+// letters (č ě ř š ž ň ů …) silently dropped. DejaVu Sans has full Czech
+// coverage. lib/ is copied into the runtime image (see Dockerfile) and the
+// server runs from the app root, so resolve the TTFs via process.cwd().
+const FONT_DIR = path.join(process.cwd(), 'lib', 'exports', 'fonts');
+Font.register({
+  family: 'DejaVuSans',
+  fonts: [
+    { src: path.join(FONT_DIR, 'DejaVuSans.ttf') },
+    { src: path.join(FONT_DIR, 'DejaVuSans-Bold.ttf'), fontWeight: 'bold' },
+  ],
+});
+
 const styles = StyleSheet.create({
-  page: { padding: 30, fontSize: 10, fontFamily: 'Helvetica' },
+  page: { padding: 30, fontSize: 10, fontFamily: 'DejaVuSans' },
   h1: { fontSize: 16, marginBottom: 4, fontWeight: 'bold' },
   sub: { fontSize: 9, color: '#666', marginBottom: 12 },
   row: { flexDirection: 'row', borderBottom: '1px solid #ddd', paddingVertical: 4 },
