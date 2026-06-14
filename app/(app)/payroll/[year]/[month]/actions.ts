@@ -1,22 +1,30 @@
 'use server';
 
 import { requireRole } from '@/lib/auth';
-import { listActiveEmployeesForPayroll, getEmployee } from '@/lib/repos/employees';
+import { getEmployee } from '@/lib/repos/employees';
 import { getLegalParametersForPeriod } from '@/lib/repos/legal-params';
 import { ensurePeriod, getPeriod, upsertRecord } from '@/lib/repos/payroll';
-import { calculatePayroll } from '@/lib/payroll';
+import { calculatePayroll, grossFromNet } from '@/lib/payroll';
 import { D, toDb } from '@/lib/money';
-import { db } from '@/lib/db/client';
 import { revalidatePath } from 'next/cache';
+
+export type SaveRow =
+  | {
+      employeeId: number;
+      mode: 'gross';
+      baseReward: string;
+      extraReward: string;
+    }
+  | {
+      employeeId: number;
+      mode: 'net';
+      netReward: string;
+    };
 
 export type SavePayload = {
   year: number;
   month: number;
-  rows: Array<{
-    employeeId: number;
-    baseReward: string;
-    extraReward: string;
-  }>;
+  rows: SaveRow[];
 };
 
 export type SaveResult =
@@ -60,14 +68,22 @@ export async function savePayroll(payload: SavePayload): Promise<SaveResult> {
     const emp = await getEmployee(row.employeeId);
     if (!emp) continue;
 
-    const result = calculatePayroll(
-      {
-        baseReward: row.baseReward || '0',
-        extraReward: row.extraReward || '0',
-        isTaxDeclarationSigned: emp.isTaxDeclarationSigned,
-      },
-      params,
-    );
+    // Net mode is grossed-up authoritatively here (not trusting any
+    // client-side estimate); gross mode stores base + bonus as entered.
+    const result =
+      row.mode === 'net'
+        ? grossFromNet(
+            { netReward: row.netReward || '0', isTaxDeclarationSigned: emp.isTaxDeclarationSigned },
+            params,
+          )
+        : calculatePayroll(
+            {
+              baseReward: row.baseReward || '0',
+              extraReward: row.extraReward || '0',
+              isTaxDeclarationSigned: emp.isTaxDeclarationSigned,
+            },
+            params,
+          );
 
     if (!result.ok) {
       offenders.push({
@@ -78,10 +94,15 @@ export async function savePayroll(payload: SavePayload): Promise<SaveResult> {
       continue;
     }
 
+    // For net mode the whole grossed-up amount lives in baseReward (no bonus
+    // split exists when entering net); gross mode keeps the entered split.
+    const baseReward = row.mode === 'net' ? result.totalGross : D(row.baseReward || '0');
+    const extraReward = row.mode === 'net' ? D(0) : D(row.extraReward || '0');
+
     computed.push({
       employeeId: emp.id,
-      baseReward: toDb(D(row.baseReward || '0')),
-      extraReward: toDb(D(row.extraReward || '0')),
+      baseReward: toDb(baseReward),
+      extraReward: toDb(extraReward),
       totalGross: toDb(result.totalGross),
       taxAmount: toDb(result.taxAmount),
       netAmount: toDb(result.netAmount),
