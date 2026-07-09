@@ -1,6 +1,22 @@
-import { create } from 'xmlbuilder2';
+import { create, convert } from 'xmlbuilder2';
 import { randomUUID } from 'node:crypto';
 import type { PayrollExport } from './data';
+
+/**
+ * Reference na původní řádné podání pro sestavení opravného hlášení. GUIDy se
+ * podle pravidel ČSSZ nesmí generovat nové — opravné použije `idPodani`
+ * původního řádného a u opravovaných osob i jejich `idFormulare`.
+ */
+export interface JmhzCorrection {
+  /** idPodani z původního řádného podání (zůstává zachované). */
+  idPodani: string;
+  /** `${ikMpsv}|${idPpv}` → idFormulare z původního řádného podání. */
+  formGuids: Record<string, string>;
+}
+
+function formKey(ikMpsv: string, idPpv: string): string {
+  return `${ikMpsv}|${idPpv}`;
+}
 
 /**
  * JMHZ podání builder dle XSD 1.4.3.4 (formCinnostKS pro pod-limitní odměny
@@ -24,7 +40,7 @@ import type { PayrollExport } from './data';
 export const VENDOR_NAME = 'JMHZ Ninja';
 export const VENDOR_VERSION = '0.2.0';
 
-export function buildJmhzXml(data: PayrollExport): string {
+export function buildJmhzXml(data: PayrollExport, correction?: JmhzCorrection): string {
   const period = { year: data.year, month: data.month };
   const { start, end } = buildPeriodDates(period.year, period.month);
 
@@ -46,8 +62,8 @@ export function buildJmhzXml(data: PayrollExport): string {
 
   // ---------- Hlavička podání ----------
   const h = jmhz.ele('hlavicka');
-  h.ele('idPodani').txt(randomUUID()).up();
-  h.ele('typPodani').txt('R').up();
+  h.ele('idPodani').txt(correction?.idPodani ?? randomUUID()).up();
+  h.ele('typPodani').txt(correction ? 'O' : 'R').up();
   h.ele('variabilniSymbol').txt(data.appConfig.csszVs || '').up();
   h.ele('mesic').txt(String(period.month)).up();
   h.ele('rok').txt(String(period.year)).up();
@@ -90,8 +106,11 @@ export function buildJmhzXml(data: PayrollExport): string {
     const formularOsoby = formulareOsob.ele('formularOsoby');
 
     const fh = formularOsoby.ele('hlavicka');
-    fh.ele('idFormulare').txt(randomUUID()).up();
-    fh.ele('typFormulare').txt('R').up();
+    const reusedFormGuid = correction?.formGuids[formKey(r.csszOic ?? '', r.csszIdPpv ?? '')];
+    fh.ele('idFormulare').txt(reusedFormGuid ?? randomUUID()).up();
+    // O = oprava existující součásti; osoba, která v původním řádném nebyla,
+    // jde v opravném hlášení jako R (doplnění).
+    fh.ele('typFormulare').txt(reusedFormGuid ? 'O' : 'R').up();
     // Účetní XML používá 1/0 pro xs:boolean, sjednocujeme.
     fh.ele('primarniPpv').txt('1').up();
     fh.up();
@@ -233,4 +252,45 @@ export function validateEmployeeForJmhz(employee: {
   if (!employee.csszIdPpv) errs.push('chybí ID PPV');
   if (!employee.personalId) errs.push('chybí rodné číslo');
   return errs;
+}
+
+interface ParsedForm {
+  hlavicka?: { idFormulare?: string };
+  'form:cinnostKS'?: {
+    'form:identifikace'?: { 'form:ikMpsv'?: string; 'form:idPpv'?: string };
+  };
+}
+interface ParsedJmhz {
+  jmhz?: {
+    hlavicka?: { idPodani?: string };
+    formulareOsob?: { formularOsoby?: ParsedForm | ParsedForm[] };
+  };
+}
+
+/**
+ * Vytáhne z původního řádného JMHZ XML identifikátory potřebné pro opravné
+ * podání: `idPodani` a mapu osob (`ikMpsv|idPpv`) → `idFormulare`. Osoby se
+ * párují přes stabilní ikMpsv (OIC) + idPpv, ne přes pořadí.
+ */
+export function parseJmhzGuids(xml: string): JmhzCorrection {
+  const parsed = convert(xml, { format: 'object' }) as unknown as ParsedJmhz;
+  const idPodani = parsed.jmhz?.hlavicka?.idPodani;
+  if (!idPodani) {
+    throw new Error('V nahraném XML chybí jmhz/hlavicka/idPodani — není to platné JMHZ podání.');
+  }
+
+  const raw = parsed.jmhz?.formulareOsob?.formularOsoby;
+  const forms = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const formGuids: Record<string, string> = {};
+  for (const f of forms) {
+    const idFormulare = f.hlavicka?.idFormulare;
+    const ident = f['form:cinnostKS']?.['form:identifikace'];
+    const ikMpsv = ident?.['form:ikMpsv'];
+    const idPpv = ident?.['form:idPpv'];
+    if (idFormulare && ikMpsv && idPpv) {
+      formGuids[formKey(ikMpsv, idPpv)] = idFormulare;
+    }
+  }
+
+  return { idPodani, formGuids };
 }

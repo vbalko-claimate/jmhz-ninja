@@ -3,6 +3,7 @@ import { listPeriods } from '@/lib/repos/payroll';
 import { monthLabel } from '@/lib/utils';
 import Link from 'next/link';
 import ValidateXmlButton from './ValidateXmlButton';
+import CorrectiveUploadButton from './CorrectiveUploadButton';
 
 export default async function ExportsPage({
   searchParams,
@@ -20,8 +21,9 @@ export default async function ExportsPage({
       <div>
         <h1 className="text-xl font-semibold">Exporty a reporty</h1>
         <p className="text-sm text-slate-500">
-          Pro každý uložený měsíc můžete stáhnout CSV/TXT/PDF přehled a vygenerovat XML JMHZ pro
-          ČSSZ.
+          Pro každý uložený měsíc můžete stáhnout CSV/TXT/PDF přehled a vygenerovat JMHZ pro ČSSZ.
+          Na ePortál ČSSZ nahrávejte <strong>ZIP</strong> (služba &bdquo;Podání nahráním dat z
+          účetního systému&ldquo;) — samotné XML je jen pro kontrolu.
         </p>
       </div>
 
@@ -70,11 +72,13 @@ export default async function ExportsPage({
                   <DownloadBtn href={`/api/exports/txt/${yy}/${mm}`} label="TXT" />
                   <DownloadBtn href={`/api/exports/pdf/${yy}/${mm}`} label="PDF" />
                   <DownloadBtn
-                    href={`/api/exports/xml/${yy}/${mm}`}
-                    label="XML JMHZ"
+                    href={`/api/exports/zip/${yy}/${mm}`}
+                    label="ZIP pro ePortál"
                     primary
                   />
+                  <DownloadBtn href={`/api/exports/xml/${yy}/${mm}`} label="XML JMHZ" />
                   <ValidateXmlButton year={p.year} month={p.month} />
+                  <CorrectiveUploadButton year={p.year} month={p.month} />
                   <Link
                     href={`/payroll/${yy}/${mm}`}
                     className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100"

@@ -7,6 +7,7 @@ import { payrollToTxt } from './txt';
 import { payrollToPdfBuffer } from './pdf';
 import { payrollToXlsxBuffer } from './xlsx';
 import { buildJmhzXml } from './xml-jmhz';
+import { zipSingleXml } from './zip';
 
 const TMP_DIR = path.join(process.cwd(), 'tmp', 'archive');
 
@@ -71,10 +72,17 @@ export async function archivePeriodToDrive(
   );
 
   // XML JMHZ
+  const jmhzXml = buildJmhzXml(data);
   const xmlPath = path.join(TMP_DIR, `${stem}-JMHZ.xml`);
-  fs.writeFileSync(xmlPath, buildJmhzXml(data));
+  fs.writeFileSync(xmlPath, jmhzXml);
   uploaded.push(`${stem}-JMHZ.xml`);
   await uploadFile(xmlPath, `${stem}-JMHZ.xml`, periodFolderId, 'application/xml');
+
+  // ZIP pro ePortál ČSSZ (přijímá JMHZ jen jako ZIP)
+  const zipPath = path.join(TMP_DIR, `${stem}-JMHZ.zip`);
+  fs.writeFileSync(zipPath, zipSingleXml(`${stem}-JMHZ.xml`, jmhzXml));
+  uploaded.push(`${stem}-JMHZ.zip`);
+  await uploadFile(zipPath, `${stem}-JMHZ.zip`, periodFolderId, 'application/zip');
 
   // JSON snapshot
   const jsonPath = path.join(TMP_DIR, `${stem}-snapshot.json`);
@@ -83,7 +91,7 @@ export async function archivePeriodToDrive(
   await uploadFile(jsonPath, `${stem}-snapshot.json`, periodFolderId, 'application/json');
 
   // Cleanup tmp
-  for (const f of [csvPath, txtPath, pdfPath, xlsxPath, xmlPath, jsonPath]) {
+  for (const f of [csvPath, txtPath, pdfPath, xlsxPath, xmlPath, zipPath, jsonPath]) {
     try {
       fs.unlinkSync(f);
     } catch {}
