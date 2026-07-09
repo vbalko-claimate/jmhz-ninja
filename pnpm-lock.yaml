@@ -32,6 +32,9 @@ importers:
       exceljs:
         specifier: ^4.4.0
         version: 4.4.0
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       googleapis:
         specifier: ^172.0.0
         version: 172.0.0
