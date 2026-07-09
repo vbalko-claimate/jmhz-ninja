@@ -1,5 +1,6 @@
 import { zipSync, strToU8 } from 'fflate';
 import { buildJmhzXml } from './xml-jmhz';
+import type { JmhzCorrection } from './xml-jmhz';
 import type { PayrollExport } from './data';
 
 /**
@@ -12,9 +13,13 @@ export function zipSingleXml(xmlFilename: string, xml: string): Buffer {
   return Buffer.from(zipped);
 }
 
-/** Postaví JMHZ XML a zabalí ho do ZIP připraveného k nahrání na ePortál ČSSZ. */
-export function buildJmhzZip(data: PayrollExport): Buffer {
+/**
+ * Postaví JMHZ XML a zabalí ho do ZIP připraveného k nahrání na ePortál ČSSZ.
+ * S `correction` sestaví opravné hlášení (recyklované GUIDy, typ O).
+ */
+export function buildJmhzZip(data: PayrollExport, correction?: JmhzCorrection): Buffer {
   const mm = String(data.month).padStart(2, '0');
-  const xmlFilename = `JMHZ-${data.year}-${mm}.xml`;
-  return zipSingleXml(xmlFilename, buildJmhzXml(data));
+  const suffix = correction ? '-opravne' : '';
+  const xmlFilename = `JMHZ-${data.year}-${mm}${suffix}.xml`;
+  return zipSingleXml(xmlFilename, buildJmhzXml(data, correction));
 }
